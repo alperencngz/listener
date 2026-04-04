@@ -529,9 +529,12 @@ async def run_pipeline(start_from: str | None = None):
     log.info("Log file: %s", log_path)
     log.info("=" * 60)
 
-    tools_planner = ["Read", "Write", "Glob", "Grep", "Bash"]
-    tools_implementor = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
-    tools_progress = ["Read", "Write", "Glob", "Grep", "Bash"]
+    # Maximum tool access — bypassPermissions auto-approves everything.
+    # List every tool the agents could conceivably need so nothing is blocked.
+    all_tools = [
+        "Read", "Write", "Edit", "Bash", "Glob", "Grep",
+        "WebSearch", "WebFetch",
+    ]
 
     for i, (fid, fname) in enumerate(features, 1):
         log.info("")
@@ -549,7 +552,7 @@ async def run_pipeline(start_from: str | None = None):
             result = await run_agent(
                 prompt=planner_prompt(fid, fname),
                 system_prompt=PLANNER_SYSTEM,
-                allowed_tools=tools_planner,
+                allowed_tools=all_tools,
                 max_turns=80,
                 timeout_s=1800,  # 30 min
                 log=log,
@@ -569,7 +572,7 @@ async def run_pipeline(start_from: str | None = None):
                 result = await run_agent(
                     prompt=implementor_prompt(fid, fname),
                     system_prompt=IMPLEMENTOR_SYSTEM,
-                    allowed_tools=tools_implementor,
+                    allowed_tools=all_tools,
                     max_turns=400,
                     timeout_s=5400,  # 90 min
                     log=log,
@@ -595,7 +598,7 @@ async def run_pipeline(start_from: str | None = None):
             await run_agent(
                 prompt=progress_prompt(fid, fname, plan_ok, impl_ok),
                 system_prompt=PROGRESS_SYSTEM,
-                allowed_tools=tools_progress,
+                allowed_tools=all_tools,
                 max_turns=40,
                 timeout_s=600,  # 10 min
                 log=log,
