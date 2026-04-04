@@ -216,6 +216,22 @@ def api_speakers(session_id):
         return jsonify({"speakers": {}})
 
 
+@app.route("/api/analytics/<session_id>")
+def api_analytics(session_id):
+    """Return analytics data for a session from its meta.json."""
+    meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
+    if not meta_path.exists():
+        return jsonify({"error": "Session not found"}), 404
+    try:
+        meta = json.loads(meta_path.read_text())
+        analytics = meta.get("analytics", {})
+        if not analytics:
+            return jsonify({"error": "No analytics available (diarization may not have run)"}), 404
+        return jsonify(analytics)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ---------------------------------------------------------------------------
 # Background processing
 # ---------------------------------------------------------------------------
@@ -278,7 +294,8 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
         except Exception as e:
             logger.warning("Title generation failed: %s", e)
 
-        # Save metadata (include speaker info)
+        # Compute analytics (requires diarized segments from F1)
+        analytics_data = {}
         speaker_info = {}
         if result.has_speakers:
             from listener.diarizer import compute_talk_times
@@ -288,12 +305,21 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
                 for label, secs in sorted(talk_times.items())
             }
 
+            # F8: Meeting analytics
+            try:
+                from listener.analytics import compute_analytics
+                analytics = compute_analytics(result.segments, result.duration)
+                analytics_data = analytics.to_dict()
+            except Exception as e:
+                logger.warning("Analytics computation failed: %s", e)
+
         meta = {
             "title": title,
             "language": result.language,
             "language_probability": result.language_probability,
             "duration": result.duration,
             "speakers": speaker_info,
+            "analytics": analytics_data,
         }
         (OUTPUT_DIR / f"{session_id}_meta.json").write_text(json.dumps(meta, ensure_ascii=False))
 
@@ -319,6 +345,21 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
             analysis_filename = f"{session_id}_analysis.md"
             (OUTPUT_DIR / analysis_filename).write_text(analysis_md)
             files["analysis"] = analysis_filename
+
+            # F8: Extract topics from analysis and add to analytics
+            if analytics_data:
+                try:
+                    from listener.analytics import extract_topics_from_analysis
+                    topics = extract_topics_from_analysis(analysis)
+                    if topics:
+                        analytics_data["topics"] = topics
+                        # Re-save meta with topics
+                        meta["analytics"] = analytics_data
+                        (OUTPUT_DIR / f"{session_id}_meta.json").write_text(
+                            json.dumps(meta, ensure_ascii=False)
+                        )
+                except Exception as e:
+                    logger.warning("Topic extraction failed: %s", e)
 
         with _lock:
             _state["status"] = "done"

@@ -81,3 +81,31 @@
 
 ---
 
+## F8: Meeting Analytics Dashboard
+
+**Timestamp:** 2026-04-05 (automated)
+**Status:** completed
+**App health:** ✅ OK (both imports and CLI verified)
+
+**Files created:**
+- `listener/analytics.py` (154 lines: analytics computation module with speaker stats, meeting metrics, topic extraction)
+- `implementation_plans/f8_implementation_plan.md` (implementation plan)
+
+**Files modified:**
+- `listener/web/app.py` (+43 lines: /api/analytics endpoint, integrated analytics computation in background processor)
+- `listener/web/templates/index.html` (+228 lines: Analytics tab with Chart.js visualizations, speaker stats, talk time distribution)
+
+**Dependencies added:**
+- None (uses existing dependencies + Chart.js CDN for frontend visualization)
+
+**Notes:**
+- Analytics module computes: talk time per speaker, turn counts, average turn length, silence ratio, total duration
+- Backend: New `/api/analytics/<session_id>` endpoint serves computed analytics from meta.json
+- Frontend: Chart.js pie chart for talk time distribution, stat cards for meeting metrics, topics list
+- Analytics computed during transcript processing in _process_recording workflow
+- Graceful degradation: shows "No analytics available" if diarization was skipped
+- Responsive design with mobile breakpoint for analytics grid
+- All verification checks passed; no blockers
+
+---
+

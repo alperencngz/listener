@@ -208,7 +208,48 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .badge.au{background:#fef3c7;color:#d97706}
 
 .empty{text-align:center;color:#94a3b8;font-size:13px;padding:16px 0}
+
+/* ---- Analytics Dashboard (F8) ---- */
+.analytics-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px;
+}
+.analytics-card{
+  background:#fff;border-radius:10px;padding:14px;
+  border:1px solid #e2e8f0;
+}
+.analytics-card.full{grid-column:1/-1}
+.analytics-card h4{
+  font-size:12px;font-weight:700;color:#94a3b8;
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;
+}
+.analytics-card canvas{width:100%!important;max-height:220px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9}
+.stat-row:last-child{border-bottom:none}
+.stat-label{font-size:13px;color:#475569;display:flex;align-items:center;gap:6px}
+.stat-val{font-size:13px;font-weight:600;color:#1e293b}
+.stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.analytics-summary{
+  display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;
+}
+.analytics-summary .stat-box{
+  flex:1;min-width:100px;background:#f8fafc;border-radius:8px;
+  padding:10px 12px;text-align:center;border:1px solid #e2e8f0;
+}
+.stat-box .stat-num{font-size:20px;font-weight:700;color:#1e293b}
+.stat-box .stat-desc{font-size:11px;color:#94a3b8;margin-top:2px}
+.topics-list{list-style:none;padding:0}
+.topics-list li{
+  font-size:13px;color:#475569;padding:4px 0;
+  border-bottom:1px solid #f1f5f9;
+}
+.topics-list li:last-child{border-bottom:none}
+.no-analytics{text-align:center;color:#94a3b8;font-size:13px;padding:40px 20px}
+
+@media(max-width:500px){
+  .analytics-grid{grid-template-columns:1fr}
+}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -427,6 +468,7 @@ function openViewer(sess){
   if(files.transcript) tabs+=`<button class="tab on" onclick="switchTab(this,'transcript')">Transcript</button>`;
   if(files.analysis) tabs+=`<button class="tab" onclick="switchTab(this,'analysis')">Analysis</button>`;
   if(files.audio) tabs+=`<button class="tab" onclick="switchTab(this,'audio')">Audio</button>`;
+  tabs+=`<button class="tab" onclick="switchTab(this,'analytics')">Analytics</button>`;
   Q('#tabs').innerHTML=tabs;
 
   // Downloads
@@ -464,6 +506,11 @@ function switchTab(btn,tab){
 async function loadTab(tab){
   const c=Q('#content');
   const files=viewerSession?.files||{};
+
+  if(tab==='analytics'){
+    await loadAnalytics(viewerSession);
+    return;
+  }
 
   if(tab==='audio'){
     c.innerHTML=`<audio controls src="/api/download/${files.audio}" style="width:100%"></audio>
@@ -581,6 +628,187 @@ async function loadSpeakerLegend(sessionId) {
     return `<div class="speaker-legend">${items}</div>`;
   } catch (e) {
     return '';
+  }
+}
+
+// ===========================================================================
+// Analytics Dashboard (F8)
+// ===========================================================================
+const CHART_COLORS = ['#6366f1','#059669','#d97706','#dc2626','#7c3aed','#0891b2','#be185d','#4338ca'];
+let _pieChart = null, _barChart = null;
+
+async function loadAnalytics(sess) {
+  const c = Q('#content');
+  if (!sess?.id) { c.innerHTML = '<p class="no-analytics">No session selected</p>'; return; }
+
+  c.innerHTML = '<p style="color:#94a3b8">Loading analytics...</p>';
+
+  try {
+    const r = await f(`/api/analytics/${sess.id}`);
+    if (!r.ok) {
+      c.innerHTML = '<p class="no-analytics">No analytics available.<br><span style="font-size:12px">Analytics require speaker diarization (F1). Re-process with a HuggingFace token to enable.</span></p>';
+      return;
+    }
+    const data = await r.json();
+    renderAnalytics(c, data);
+  } catch (e) {
+    c.innerHTML = '<p class="no-analytics">Failed to load analytics</p>';
+  }
+}
+
+function renderAnalytics(container, data) {
+  // Destroy old charts
+  if (_pieChart) { _pieChart.destroy(); _pieChart = null; }
+  if (_barChart) { _barChart.destroy(); _barChart = null; }
+
+  const speakers = data.speakers || {};
+  const speakerNames = Object.keys(speakers);
+  const hasSpeakers = speakerNames.length > 0;
+
+  // Summary stats
+  const durMin = Math.round((data.total_duration || 0) / 60);
+  const silPct = Math.round((data.silence_ratio || 0) * 100);
+  const segCount = data.segment_count || 0;
+
+  let html = `<div class="analytics-summary">
+    <div class="stat-box"><div class="stat-num">${durMin}</div><div class="stat-desc">Minutes</div></div>
+    <div class="stat-box"><div class="stat-num">${speakerNames.length}</div><div class="stat-desc">Speakers</div></div>
+    <div class="stat-box"><div class="stat-num">${segCount}</div><div class="stat-desc">Segments</div></div>
+    <div class="stat-box"><div class="stat-num">${silPct}%</div><div class="stat-desc">Silence</div></div>
+  </div>`;
+
+  if (!hasSpeakers) {
+    html += '<p class="no-analytics">No speaker data available for charts.</p>';
+    container.innerHTML = html;
+    return;
+  }
+
+  html += '<div class="analytics-grid">';
+
+  // Pie chart: Talk Time Distribution
+  html += `<div class="analytics-card">
+    <h4>Talk Time</h4>
+    <canvas id="pie-chart"></canvas>
+  </div>`;
+
+  // Bar chart: Turns Per Speaker
+  html += `<div class="analytics-card">
+    <h4>Speaking Turns</h4>
+    <canvas id="bar-chart"></canvas>
+  </div>`;
+
+  // Speaker details table
+  html += `<div class="analytics-card full">
+    <h4>Speaker Details</h4>`;
+  speakerNames.forEach((name, i) => {
+    const s = speakers[name];
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const timeStr = fmtDur(s.talk_time);
+    html += `<div class="stat-row">
+      <span class="stat-label"><span class="stat-dot" style="background:${color}"></span>${esc(name)}</span>
+      <span class="stat-val">${timeStr} &middot; ${s.turns} turns &middot; ${s.percentage}%</span>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Topics (if available)
+  const topics = data.topics || [];
+  if (topics.length > 0) {
+    html += `<div class="analytics-card full"><h4>Topics Discussed</h4><ul class="topics-list">`;
+    topics.forEach(t => {
+      html += `<li>${esc(t.name)}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  html += '</div>'; // close analytics-grid
+  container.innerHTML = html;
+
+  // Render charts (must happen after DOM insertion)
+  setTimeout(() => { renderCharts(speakers, speakerNames); }, 50);
+}
+
+function renderCharts(speakers, speakerNames) {
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js not loaded');
+    return;
+  }
+
+  const colors = speakerNames.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+  const talkTimes = speakerNames.map(n => speakers[n].talk_time);
+  const turns = speakerNames.map(n => speakers[n].turns);
+
+  // Pie chart
+  const pieEl = document.getElementById('pie-chart');
+  if (pieEl) {
+    _pieChart = new Chart(pieEl, {
+      type: 'doughnut',
+      data: {
+        labels: speakerNames,
+        datasets: [{
+          data: talkTimes,
+          backgroundColor: colors,
+          borderWidth: 2,
+          borderColor: '#fff',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const secs = ctx.raw;
+                const m = Math.floor(secs / 60);
+                const s = Math.floor(secs % 60);
+                const pct = speakers[ctx.label].percentage;
+                return `${ctx.label}: ${m}m ${s}s (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Bar chart
+  const barEl = document.getElementById('bar-chart');
+  if (barEl) {
+    _barChart = new Chart(barEl, {
+      type: 'bar',
+      data: {
+        labels: speakerNames,
+        datasets: [{
+          label: 'Turns',
+          data: turns,
+          backgroundColor: colors.map(c => c + '88'),
+          borderColor: colors,
+          borderWidth: 1.5,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const avgLen = speakers[ctx.label].avg_turn_length;
+                return `${ctx.raw} turns (avg ${Math.round(avgLen)}s each)`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+          x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
   }
 }
 
