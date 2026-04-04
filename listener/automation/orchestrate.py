@@ -17,6 +17,7 @@ Usage:
 import asyncio
 import logging
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -490,6 +491,33 @@ Confirm the new commit appears at the top."""
 
 
 # ---------------------------------------------------------------------------
+# Auto-resume: detect completed features from progress.md
+# ---------------------------------------------------------------------------
+
+
+def get_completed_features() -> set[str]:
+    """Parse progress.md and return feature IDs marked as completed."""
+    if not PROGRESS.exists():
+        return set()
+
+    completed = set()
+    content = PROGRESS.read_text()
+    current_fid = None
+
+    for line in content.split("\n"):
+        # Match feature headers: "## F1: Speaker Diarization"
+        m = re.match(r"^##\s+(F\d+):", line)
+        if m:
+            current_fid = m.group(1)
+        # Match status: "**Status:** completed"
+        if current_fid and "**Status:**" in line and "completed" in line.lower():
+            completed.add(current_fid)
+            current_fid = None
+
+    return completed
+
+
+# ---------------------------------------------------------------------------
 # Main orchestration loop
 # ---------------------------------------------------------------------------
 
@@ -506,8 +534,10 @@ async def run_pipeline(start_from: str | None = None):
             f"---\n\n"
         )
 
-    # Determine starting point
+    # Auto-resume: skip features already completed in progress.md
+    completed = get_completed_features()
     features = list(FEATURES)
+
     if start_from:
         idx = next(
             (i for i, (fid, _) in enumerate(features) if fid == start_from), None
@@ -518,16 +548,27 @@ async def run_pipeline(start_from: str | None = None):
                 start_from,
                 [f[0] for f in features],
             )
-            return
+            sys.exit(1)
         features = features[idx:]
-        log.info("Resuming from %s (skipping %d features)", start_from, idx)
+        log.info("--start-from %s: skipping %d features", start_from, idx)
+
+    # Filter out already-completed features
+    remaining = [(fid, fn) for fid, fn in features if fid not in completed]
+
+    if completed:
+        log.info("Already completed (from progress.md): %s", sorted(completed))
+    if not remaining:
+        log.info("All features are already completed! Nothing to do.")
+        sys.exit(0)
 
     log.info("=" * 60)
     log.info("Listener overnight implementation pipeline")
-    log.info("Features to implement: %d", len(features))
+    log.info("Remaining features: %d / %d", len(remaining), len(FEATURES))
     log.info("Models: Opus (planner + implementor), Sonnet (progress)")
     log.info("Log file: %s", log_path)
     log.info("=" * 60)
+
+    features = remaining
 
     # Maximum tool access — bypassPermissions auto-approves everything.
     # List every tool the agents could conceivably need so nothing is blocked.
@@ -619,12 +660,27 @@ async def run_pipeline(start_from: str | None = None):
             "OK" if impl_ok else "FAIL",
         )
 
+    # Check if all features are now complete
+    final_completed = get_completed_features()
+    all_fids = {fid for fid, _ in FEATURES}
+    still_remaining = all_fids - final_completed
+
     log.info("")
     log.info("=" * 60)
     log.info("Pipeline finished at %s", datetime.now().strftime("%H:%M"))
+    log.info("Completed: %d / %d features", len(final_completed), len(FEATURES))
     log.info("Review: %s", PROGRESS)
     log.info("Logs:   %s", log_path)
-    log.info("=" * 60)
+
+    if still_remaining:
+        log.info("Uncompleted: %s", sorted(still_remaining))
+        log.info("Exit 1 — retry loop will re-run for remaining features")
+        log.info("=" * 60)
+        sys.exit(1)
+    else:
+        log.info("All features completed!")
+        log.info("=" * 60)
+        sys.exit(0)
 
 
 # ---------------------------------------------------------------------------
