@@ -230,6 +230,48 @@ select:disabled{opacity:.45;cursor:not-allowed}
 
 .empty{text-align:center;color:#94a3b8;font-size:13px;padding:16px 0}
 
+/* ---- Search (F4) ---- */
+.search-bar{
+  display:flex;gap:8px;margin-bottom:12px;
+}
+.search-bar input{
+  flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:13px;outline:none;transition:border .2s;
+}
+.search-bar input:focus{border-color:#6366f1}
+.search-bar button{
+  padding:8px 14px;border:none;border-radius:8px;
+  background:#6366f1;color:#fff;font-size:13px;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:background .2s;
+}
+.search-bar button:hover{background:#4f46e5}
+.search-bar .clear-btn{
+  background:#e2e8f0;color:#64748b;
+}
+.search-bar .clear-btn:hover{background:#cbd5e1}
+
+.search-results .sr-item{
+  padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;
+  transition:background .15s;
+}
+.search-results .sr-item:hover{background:#f8fafc}
+.search-results .sr-title{font-size:14px;font-weight:600;color:#1e293b}
+.search-results .sr-meta{font-size:12px;color:#94a3b8;margin-top:2px}
+.search-results .sr-snippet{
+  font-size:12px;color:#475569;margin-top:4px;
+  line-height:1.5;
+}
+.search-results .sr-snippet mark{
+  background:#fef08a;color:#1e293b;border-radius:2px;
+  padding:0 1px;
+}
+.search-results .sr-empty{
+  text-align:center;color:#94a3b8;font-size:13px;padding:20px 0;
+}
+.search-results .sr-hint{
+  text-align:center;color:#b0b8c4;font-size:12px;padding:12px 0;
+}
+
 /* ---- Analytics Dashboard (F8) ---- */
 .analytics-grid{
   display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px;
@@ -525,6 +567,12 @@ select:disabled{opacity:.45;cursor:not-allowed}
   <!-- Sessions -->
   <div class="card">
     <div class="card-label">Past Sessions</div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search all meetings..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button onclick="doSearch()">Search</button>
+      <button class="clear-btn" id="search-clear" onclick="clearSearch()" style="display:none">Clear</button>
+    </div>
+    <div class="search-results" id="search-results" style="display:none"></div>
     <ul class="slist" id="slist">
       <li class="empty">No sessions yet</li>
     </ul>
@@ -1437,6 +1485,77 @@ async function loadSessions(){
 }
 
 function viewSess(s){openViewer(s)}
+
+// ===========================================================================
+// Full-Text Search (F4)
+// ===========================================================================
+async function doSearch(){
+  const input = Q('#search-input');
+  const query = input.value.trim();
+  if(!query){clearSearch();return}
+
+  const res = Q('#search-results');
+  const slist = Q('#slist');
+  const clearBtn = Q('#search-clear');
+
+  try{
+    const r = await f('/api/search?q='+encodeURIComponent(query));
+    const results = await r.json();
+
+    clearBtn.style.display='inline-block';
+    res.style.display='block';
+    slist.style.display='none';
+
+    if(!results.length){
+      res.innerHTML='<div class="sr-empty">No results found for "'+esc(query)+'"</div>'+
+        '<div class="sr-hint">Try: phrases in quotes, OR for alternatives, prefix* for wildcards</div>';
+      return;
+    }
+
+    res.innerHTML = results.map(r=>{
+      const title = r.title || r.session_id;
+      const date = r.date || r.session_id.split('_')[0];
+      const dur = r.duration ? ' &middot; '+fmtDur(r.duration) : '';
+      const lang = r.language ? ' &middot; '+r.language.toUpperCase() : '';
+      return `<div class="sr-item" onclick="searchClickSession('${esc(r.session_id)}')">
+        <div class="sr-title">${esc(title)}</div>
+        <div class="sr-meta">${esc(date)}${dur}${lang}</div>
+        ${r.snippet ? '<div class="sr-snippet">...'+r.snippet+'...</div>' : ''}
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error('Search failed:',e);
+    res.innerHTML='<div class="sr-empty">Search failed</div>';
+    res.style.display='block';
+    slist.style.display='none';
+    clearBtn.style.display='inline-block';
+  }
+}
+
+function clearSearch(){
+  Q('#search-input').value='';
+  Q('#search-results').style.display='none';
+  Q('#search-results').innerHTML='';
+  Q('#slist').style.display='';
+  Q('#search-clear').style.display='none';
+}
+
+async function searchClickSession(sessionId){
+  try{
+    const r = await f('/api/sessions');
+    const sessions = await r.json();
+    const s = sessions.find(s=>s.id===sessionId);
+    if(s){
+      clearSearch();
+      viewSess(s);
+    }else{
+      clearSearch();
+      viewSess({id:sessionId,files:{transcript:sessionId+'_transcript.md'},title:sessionId});
+    }
+  }catch(e){
+    console.error('Could not load session:',e);
+  }
+}
 
 // ===========================================================================
 // Click-to-Seek Audio Linkage (F5)

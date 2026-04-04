@@ -373,6 +373,22 @@ def api_webhooks_test(webhook_id):
 
 
 # ---------------------------------------------------------------------------
+# Full-Text Search (F4)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/search")
+def api_search():
+    """Search across all meeting transcripts, analyses, and titles."""
+    from listener.db import search_meetings
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify([])
+    limit = request.args.get("limit", 20, type=int)
+    results = search_meetings(q, limit=min(limit, 50))
+    return jsonify(results)
+
+
+# ---------------------------------------------------------------------------
 # Live Transcription SSE (F9)
 # ---------------------------------------------------------------------------
 
@@ -551,6 +567,38 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
                 except Exception as e:
                     logger.warning("Topic extraction failed: %s", e)
 
+        # F4: Index in search database
+        try:
+            from listener.db import insert_meeting
+            # Derive ISO date from session_id
+            parts = session_id.split("_")
+            iso_date = parts[0]
+            if len(parts) > 1:
+                iso_date = f"{parts[0]}T{parts[1].replace('-', ':')}"
+
+            # Read analysis text if available
+            analysis_text = ""
+            if "analysis" in files:
+                try:
+                    analysis_text = (OUTPUT_DIR / files["analysis"]).read_text()
+                except Exception:
+                    pass
+
+            insert_meeting(
+                session_id=session_id,
+                title=title,
+                date=iso_date,
+                duration=result.duration,
+                language=result.language,
+                lang_confidence=result.language_probability,
+                transcript=transcript_text,
+                analysis=analysis_text,
+                audio_path=audio_path,
+            )
+            logger.info("Indexed session %s in search DB", session_id)
+        except Exception as e:
+            logger.warning("Search indexing failed: %s", e)
+
         # F10: Fire webhooks asynchronously
         try:
             from listener.webhooks import fire_webhooks
@@ -605,4 +653,14 @@ def _fmt_duration(seconds):
 def run(port=8642, debug=False):
     """Start the web server."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # F4: Backfill any existing sessions into search index
+    try:
+        from listener.db import backfill_from_transcripts
+        count = backfill_from_transcripts(OUTPUT_DIR)
+        if count:
+            logger.info("Backfilled %d sessions into search index", count)
+    except Exception as e:
+        logger.warning("Search index backfill failed: %s", e)
+
     app.run(host="127.0.0.1", port=port, debug=debug, threaded=True)

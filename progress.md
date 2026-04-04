@@ -265,3 +265,37 @@
 
 ---
 
+## F4: Full-Text Search Across Meetings
+
+**Timestamp:** 2026-04-05 (automated)
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `listener/db.py` (database module for full-text search with SQLite FTS5)
+- `implementation_plans/f4_implementation_plan.md` (implementation plan)
+
+**Files modified:**
+- `listener/cli.py` (+31 lines: new `search` command with keyword search and result display)
+- `listener/web/app.py` (+58 lines: /api/search endpoint, database indexing in _process_recording workflow)
+- `listener/web/templates/index.html` (+119 lines: search UI with keyword input, result rendering, timestamp links)
+- `.claude/settings.local.json` (automation config updates)
+
+**Dependencies added:**
+- None (uses Python stdlib sqlite3 with FTS5 extension)
+
+**Notes:**
+- Database module provides full-text search using SQLite FTS5 (virtual table with built-in ranking)
+- Search index automatically built when transcript processing completes
+- CLI: new `listener search <keywords>` command with formatted result display showing matches with context
+- Web API: `/api/search?q=<keywords>` endpoint returns ranked results with session metadata
+- Frontend: Search tab with keyword input, result cards showing session ID, timestamp, and matching text snippet
+- Search results ranked by relevance using FTS5's BM25 algorithm
+- Database stored at `~/.listener/meetings.db` (same pattern as config.yaml from F10)
+- Incremental indexing: each session added to database when processing completes
+- Search queries support: phrase search ("exact match"), AND/OR operators, prefix matching
+- Result display includes clickable timestamps that seek to relevant point in transcript
+- All verification checks passed; no blockers
+
+---
+

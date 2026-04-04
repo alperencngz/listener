@@ -83,6 +83,37 @@ def recipes():
 
 
 # -----------------------------------------------------------------------
+# listener search
+# -----------------------------------------------------------------------
+
+@cli.command()
+@click.argument("query")
+@click.option("--limit", "-n", default=10, help="Max results to return")
+def search(query, limit):
+    """Search across all meeting transcripts."""
+    from listener.db import search_meetings, backfill_from_transcripts
+    import re
+
+    # Backfill first to ensure index is current
+    transcripts_dir = Path("./transcripts")
+    backfill_from_transcripts(transcripts_dir)
+
+    results = search_meetings(query, limit=limit)
+    if not results:
+        click.echo("No results found.")
+        return
+
+    for i, r in enumerate(results, 1):
+        title = r["title"] or r["session_id"]
+        click.echo(f"\n{i}. {title}")
+        click.echo(f"   Date: {r['date']}  Duration: {r['duration']:.0f}s  Lang: {r['language']}")
+        if r.get("snippet"):
+            # Strip HTML tags for terminal display
+            snippet = re.sub(r'<[^>]+>', '', r["snippet"])
+            click.echo(f"   ...{snippet}...")
+
+
+# -----------------------------------------------------------------------
 # listener record
 # -----------------------------------------------------------------------
 
