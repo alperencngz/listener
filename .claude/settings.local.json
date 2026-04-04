@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(listener:*)",
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=meeting+transcription&sort=stars&order=desc&per_page=10\")",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=whisper+meeting&sort=stars&order=desc&per_page=10\")",
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=meeting+notes+AI&sort=stars&order=desc&per_page=10\")",
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=meeting+assistant&sort=stars&order=desc&per_page=10\")",
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=conference+recorder&sort=stars&order=desc&per_page=10\")",
+      "Bash(curl -s \"https://api.github.com/repos/Zackriya-Solutions/meetily\")",
+      "Bash(curl -s \"https://api.github.com/repos/Zackriya-Solutions/meetily/readme\")",
+      "Bash(curl -s \"https://api.github.com/repos/Vexa-ai/vexa/readme\")",
+      "Bash(curl -s \"https://otter.ai\")",
+      "Bash(curl -s \"https://fireflies.ai\")",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:tldv.io)",
+      "Bash(pip3 show:*)",
+      "Bash(python3 -c \"import fpdf2; print\\(fpdf2.__version__\\)\")",
+      "Bash(python3 -c \"import docx; print\\(docx.__version__\\)\")",
+      "Bash(python3 -c \"import sqlite3; print\\(sqlite3.sqlite_version\\)\")",
+      "Bash(git -C /Users/alperencngzz/Desktop/listener add -A)",
+      "Bash(git -C /Users/alperencngzz/Desktop/listener commit -m ':*)"
+    ]
+  }
+}
