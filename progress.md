@@ -235,3 +235,33 @@
 
 ---
 
+## F5: Click-to-Seek Audio Linkage
+
+**Timestamp:** 2026-04-05 (automated)
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `implementation_plans/f5_implementation_plan.md` (implementation plan)
+
+**Files modified:**
+- `listener/web/templates/index.html` (+117 lines: click-to-seek functionality, audio player integration, auto-scroll, segment highlighting)
+
+**Dependencies added:**
+- None (pure frontend JavaScript enhancement)
+
+**Notes:**
+- All timestamps in transcript are now clickable - clicking seeks audio to that point and starts playback
+- Sticky audio player embedded at top of transcript tab (only when audio file is available)
+- Active segment highlighting: as audio plays, current segment is visually highlighted with `.seg-active` class
+- Auto-scroll feature: optionally scrolls to keep active segment centered during playback (enabled by default, togglable)
+- Added 5 new JavaScript functions: `parseTimestamp()`, `seekTo()`, `onAudioTimeUpdate()`, `toggleAutoScroll()`
+- Global state management: `_transcriptAudio` (audio element reference), `_autoScroll` (scroll preference)
+- Proper cleanup: audio listeners removed when closing viewer or switching tabs to prevent memory leaks
+- CSS enhancements: hover effects on timestamps, smooth transitions for segment highlighting
+- Timestamps support both MM:SS and HH:MM:SS formats
+- Works with both inline timestamps `[MM:SS]` and speaker-prefixed timestamps `**[MM:SS] Speaker:**`
+- All verification checks passed; no blockers
+
+---
+

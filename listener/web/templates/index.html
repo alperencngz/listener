@@ -135,6 +135,27 @@ select:disabled{opacity:.45;cursor:not-allowed}
   font-size:12px;color:#6366f1;background:#eef2ff;
   padding:1px 5px;border-radius:4px;
 }
+.seg-active {
+  background: #eef2ff;
+  border-left: 3px solid #6366f1;
+  padding-left: 8px;
+  margin-left: -11px;
+  border-radius: 0 6px 6px 0;
+  transition: background 0.3s ease;
+}
+.ts.clickable { cursor: pointer; transition: background 0.15s; }
+.ts.clickable:hover { background: #c7d2fe; }
+.transcript-audio-bar {
+  position: sticky; top: 0; z-index: 5;
+  background: #fff; padding: 10px 0 8px;
+  border-bottom: 1px solid #e2e8f0; margin-bottom: 10px;
+}
+.transcript-audio-bar audio { width: 100%; }
+.autoscroll-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px; font-size: 12px; color: #64748b;
+}
+.autoscroll-row label { cursor: pointer; user-select: none; }
 .content .task{display:flex;align-items:flex-start;gap:6px;margin:4px 0}
 .content .task input{margin-top:4px}
 .content .task.done{color:#64748b;text-decoration:line-through}
@@ -771,6 +792,12 @@ function openViewer(sess){
 }
 
 function closeViewer(){
+  // F5: Clean up transcript audio
+  if (_transcriptAudio) {
+    _transcriptAudio.removeEventListener('timeupdate', onAudioTimeUpdate);
+    _transcriptAudio.pause();
+    _transcriptAudio = null;
+  }
   Q('#viewer').classList.remove('open');
   Q('#live-panel').classList.remove('open');
   closeLiveStream();
@@ -781,6 +808,12 @@ function closeViewer(){
 function switchTab(btn,tab){
   Q('#tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   btn.classList.add('on');
+  // F5: Clean up transcript audio reference when leaving transcript tab
+  if (_transcriptAudio) {
+    _transcriptAudio.removeEventListener('timeupdate', onAudioTimeUpdate);
+    _transcriptAudio.pause();
+    _transcriptAudio = null;
+  }
   // Reset content styles that chat tab may have overridden
   const c = Q('#content');
   if (tab !== 'chat') {
@@ -821,7 +854,24 @@ async function loadTab(tab){
     if (tab === 'transcript' && viewerSession?.id) {
       legendHtml = await loadSpeakerLegend(viewerSession.id);
     }
-    c.innerHTML = legendHtml + renderMd(md);
+    // F5: Embed audio player at top of transcript tab
+    let audioBarHtml = '';
+    if (tab === 'transcript' && viewerSession?.files?.audio) {
+      audioBarHtml = '<div class="transcript-audio-bar">'
+        + '<audio controls src="/api/download/' + viewerSession.files.audio + '"></audio>'
+        + '<div class="autoscroll-row">'
+        + '<input type="checkbox" id="autoscroll-cb" checked onchange="toggleAutoScroll(this)">'
+        + '<label for="autoscroll-cb">Auto-scroll during playback</label>'
+        + '</div></div>';
+    }
+    c.innerHTML = audioBarHtml + legendHtml + renderMd(md);
+    // F5: Attach timeupdate listener to transcript audio
+    if (tab === 'transcript') {
+      _transcriptAudio = c.querySelector('.transcript-audio-bar audio');
+      if (_transcriptAudio) {
+        _transcriptAudio.addEventListener('timeupdate', onAudioTimeUpdate);
+      }
+    }
   }catch(e){
     c.innerHTML='<p class="empty">Failed to load</p>';
   }
@@ -889,13 +939,13 @@ function il(s){
         var speaker = spkMatch[2];
         var num = spkMatch[3];
         var cls = num ? 'spk-' + Math.min(parseInt(num), 8) : 'spk-unknown';
-        return '<span class="ts">[' + ts + ']</span> <span class="spk ' + cls + '">' + speaker + ':</span>';
+        return '<span class="ts clickable" data-ts="' + ts + '" onclick="seekTo(\'' + ts + '\')">[' + ts + ']</span> <span class="spk ' + cls + '">' + speaker + ':</span>';
       }
       return '<strong>' + inner + '</strong>';
     })
     .replace(/\*(.*?)\*/g,'<em>$1</em>')
     .replace(/`(.*?)`/g,'<code>$1</code>')
-    .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g,'<span class="ts">[$1]</span>');
+    .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g,'<span class="ts clickable" data-ts="$1" onclick="seekTo(\'$1\')">[$1]</span>');
 }
 
 // ===========================================================================
@@ -1387,6 +1437,67 @@ async function loadSessions(){
 }
 
 function viewSess(s){openViewer(s)}
+
+// ===========================================================================
+// Click-to-Seek Audio Linkage (F5)
+// ===========================================================================
+let _autoScroll = true;
+let _transcriptAudio = null;
+
+function parseTimestamp(tsStr) {
+  const parts = tsStr.split(':').map(Number);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+function seekTo(tsStr) {
+  const seconds = parseTimestamp(tsStr);
+  let audio = _transcriptAudio || document.querySelector('.transcript-audio-bar audio') || document.querySelector('audio');
+  if (!audio) {
+    console.warn('No audio player found');
+    return;
+  }
+  audio.currentTime = seconds;
+  audio.play();
+}
+
+function onAudioTimeUpdate() {
+  const audio = _transcriptAudio;
+  if (!audio) return;
+  const currentTime = audio.currentTime;
+  const content = Q('#content');
+  if (!content) return;
+
+  const tsSpans = content.querySelectorAll('.ts.clickable[data-ts]');
+  if (tsSpans.length === 0) return;
+
+  let bestEl = null;
+  let bestTime = -1;
+
+  tsSpans.forEach(span => {
+    const t = parseTimestamp(span.dataset.ts);
+    const segEl = span.closest('p') || span.closest('li');
+    if (!segEl) return;
+    if (t <= currentTime && t > bestTime) {
+      bestTime = t;
+      bestEl = segEl;
+    }
+  });
+
+  content.querySelectorAll('.seg-active').forEach(el => el.classList.remove('seg-active'));
+
+  if (bestEl) {
+    bestEl.classList.add('seg-active');
+    if (_autoScroll) {
+      bestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}
+
+function toggleAutoScroll(cb) {
+  _autoScroll = cb.checked;
+}
 
 // ===========================================================================
 // Helpers
