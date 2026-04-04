@@ -164,9 +164,11 @@ IMPLEMENTOR_SYSTEM = (
 )
 
 PROGRESS_SYSTEM = (
-    "You are a project progress tracker. "
-    "You verify what was actually created or changed and update "
-    "the progress log accurately and concisely."
+    "You are a project progress tracker and git commit author. "
+    "You verify what was actually created or changed, update "
+    "the progress log, and create a proper git commit for the work done. "
+    "You always use git add with specific file paths (never git add -A). "
+    "You never commit .env files, .wav files, or __pycache__ directories."
 )
 
 
@@ -239,7 +241,7 @@ RULES:
 
 def progress_prompt(fid: str, fname: str, plan_ok: bool, impl_ok: bool) -> str:
     return f"""\
-Update the progress log for feature {fid}: {fname}.
+Update the progress log and create a git commit for feature {fid}: {fname}.
 
 PROJECT ROOT: {PROJECT_DIR}
 PROGRESS FILE: {PROGRESS}
@@ -247,23 +249,47 @@ PROGRESS FILE: {PROGRESS}
 Planner status: {"succeeded" if plan_ok else "FAILED"}
 Implementor status: {"succeeded" if impl_ok else "FAILED" if plan_ok else "SKIPPED (planner failed)"}
 
-STEPS:
-1. Read {PROGRESS} (create it if it doesn't exist).
-2. Check which files were actually created or modified for {fid}:
-   - Look in {PLANS_DIR} for the plan file
-   - Look in {PROJECT_DIR}/listener/ for new or changed .py files
-   - Look at {PROJECT_DIR}/pyproject.toml for dependency changes
-   - Check {PROJECT_DIR}/listener/web/templates/index.html for UI changes
-3. Append a new section to {PROGRESS} with:
-   - Feature: {fid}: {fname}
-   - Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M")}
-   - Status: completed / partial / failed
-   - Files created (list)
-   - Files modified (list)
-   - Dependencies added (if any)
-   - Issues or notes (if any)
+STEP 1 — Assess what changed:
+  Run: git status
+  Run: git diff --stat
+  Check which files were actually created or modified for {fid}:
+    - {PLANS_DIR} for the plan file
+    - {PROJECT_DIR}/listener/ for new or changed .py files
+    - {PROJECT_DIR}/pyproject.toml for dependency changes
+    - {PROJECT_DIR}/listener/web/templates/index.html for UI changes
+    - {PROJECT_DIR}/listener/recipes/ for recipe YAML files
 
-Keep entries concise. Do NOT overwrite previous entries — append only."""
+STEP 2 — Update progress log:
+  Read {PROGRESS} then APPEND (do NOT overwrite previous entries) a section:
+    ## {fid}: {fname}
+    **Timestamp:** {datetime.now().strftime("%Y-%m-%d %H:%M")}
+    **Status:** completed / partial / failed
+    **Files created:** (list)
+    **Files modified:** (list)
+    **Dependencies added:** (if any)
+    **Notes:** (issues or observations)
+
+STEP 3 — Create a git commit:
+  a) Run: git add <specific files>
+     Add ALL new and modified files related to this feature.
+     Add the implementation plan file.
+     Add the updated progress.md.
+     NEVER add .wav files, __pycache__/, .env, or transcripts/.
+     NEVER use 'git add -A' or 'git add .'.
+  b) Run: git commit -m "<message>"
+     Commit message format:
+       feat({fid.lower()}): {fname.lower()}
+
+       <2-3 sentence description of what was implemented>
+
+       Files: <count> new, <count> modified
+     Use a heredoc for the message to handle multi-line formatting.
+  c) If there are no changes to commit (nothing was implemented), skip the commit
+     and note this in progress.md.
+
+STEP 4 — Verify:
+  Run: git log --oneline -3
+  Confirm the commit was created successfully."""
 
 
 # ---------------------------------------------------------------------------
