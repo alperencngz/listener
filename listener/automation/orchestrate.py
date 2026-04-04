@@ -96,6 +96,7 @@ async def run_agent(
     timeout_s: int,
     log: logging.Logger,
     label: str = "",
+    model: str = "claude-opus-4-6",
 ) -> str:
     """Run a Claude Code SDK session with tool access.
 
@@ -113,7 +114,7 @@ async def run_agent(
         allowed_tools=allowed_tools,
         permission_mode="bypassPermissions",
         max_turns=max_turns,
-        model="claude-sonnet-4-5",
+        model=model,
         env=env_overrides,
     )
 
@@ -336,17 +337,18 @@ async def run_pipeline(start_from: str | None = None):
         plan_ok = False
         impl_ok = False
 
-        # ---- 1. Planner ----
+        # ---- 1. Planner (Opus, max effort) ----
         try:
-            log.info("  [1/3] Planner starting...")
+            log.info("  [1/3] Planner starting (opus)...")
             result = await run_agent(
                 prompt=planner_prompt(fid, fname),
                 system_prompt=PLANNER_SYSTEM,
                 allowed_tools=tools_readonly,
-                max_turns=40,
-                timeout_s=900,      # 15 min
+                max_turns=80,
+                timeout_s=1800,     # 30 min
                 log=log,
                 label=f"{fid}-planner",
+                model="claude-opus-4-6",
             )
             plan_ok = True
             log.info("  [1/3] Planner done")
@@ -354,18 +356,19 @@ async def run_pipeline(start_from: str | None = None):
         except Exception as e:
             log.error("  [1/3] Planner FAILED: %s", e)
 
-        # ---- 2. Implementor ----
+        # ---- 2. Implementor (Opus, max effort) ----
         if plan_ok:
             try:
-                log.info("  [2/3] Implementor starting...")
+                log.info("  [2/3] Implementor starting (opus)...")
                 result = await run_agent(
                     prompt=implementor_prompt(fid, fname),
                     system_prompt=IMPLEMENTOR_SYSTEM,
                     allowed_tools=tools_full,
-                    max_turns=200,
-                    timeout_s=2700,     # 45 min
+                    max_turns=400,
+                    timeout_s=5400,     # 90 min
                     log=log,
                     label=f"{fid}-implementor",
+                    model="claude-opus-4-6",
                 )
                 impl_ok = True
                 log.info("  [2/3] Implementor done")
@@ -375,19 +378,20 @@ async def run_pipeline(start_from: str | None = None):
         else:
             log.warning("  [2/3] Skipping implementor (planner failed)")
 
-        # ---- 3. Progress updater ----
+        # ---- 3. Progress updater + git commit (Sonnet, high effort) ----
         try:
-            log.info("  [3/3] Updating progress...")
+            log.info("  [3/3] Updating progress & committing (sonnet)...")
             await run_agent(
                 prompt=progress_prompt(fid, fname, plan_ok, impl_ok),
                 system_prompt=PROGRESS_SYSTEM,
                 allowed_tools=tools_readonly,
-                max_turns=20,
-                timeout_s=300,      # 5 min
+                max_turns=40,
+                timeout_s=600,      # 10 min
                 log=log,
                 label=f"{fid}-progress",
+                model="claude-sonnet-4-5",
             )
-            log.info("  [3/3] Progress updated")
+            log.info("  [3/3] Progress updated & committed")
         except Exception as e:
             log.error("  [3/3] Progress update FAILED: %s", e)
 
