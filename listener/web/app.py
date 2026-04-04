@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response, stream_with_context
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ _state = {
     "title": None,
 }
 _recorder = None
+_streamer = None  # StreamingTranscriber instance for live transcription
 
 _INTERNAL_KEYS = {"start_time", "_audio_path", "_language", "_model_size", "_skip_analysis"}
 
@@ -74,12 +75,14 @@ def api_start():
         if _state["status"] not in ("idle", "done", "error"):
             return jsonify({"error": f"Cannot start while {_state['status']}"}), 400
 
+    global _streamer
     data = request.json or {}
     device_val = data.get("device")
     device = int(device_val) if device_val is not None and device_val != "" else None
     language = data.get("language") or None
     model_size = data.get("model_size", "large-v3")
     skip_analysis = data.get("skip_analysis", False)
+    live_transcription = data.get("live_transcription", False)
 
     from listener.recorder import Recorder
 
@@ -87,10 +90,30 @@ def api_start():
     session_id = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     audio_path = str(OUTPUT_DIR / f"{session_id}.wav")
 
-    recorder = Recorder(device=device)
+    # Set up streaming transcriber if live mode is requested
+    audio_hook = None
+    if live_transcription:
+        try:
+            from listener.streaming import StreamingTranscriber
+            streamer = StreamingTranscriber(
+                model_size=model_size,
+                language=language,
+            )
+            streamer.start()
+            _streamer = streamer
+            audio_hook = streamer.feed_audio
+            logger.info("Live transcription enabled for session %s", session_id)
+        except Exception as e:
+            logger.warning("Could not start live transcription: %s", e)
+            _streamer = None
+
+    recorder = Recorder(device=device, on_audio=audio_hook)
     try:
         recorder.start(audio_path)
     except Exception as e:
+        if _streamer:
+            _streamer.stop()
+            _streamer = None
         return jsonify({"error": f"Could not start recording: {e}"}), 500
 
     with _lock:
@@ -132,6 +155,14 @@ def api_stop():
         _state["start_time"] = None
 
     recorder.stop()
+
+    # Stop live transcription if active
+    if _streamer is not None:
+        try:
+            _streamer.stop()
+        except Exception as e:
+            logger.warning("Error stopping live transcription: %s", e)
+        _streamer = None
 
     threading.Thread(
         target=_process_recording,
@@ -278,6 +309,55 @@ def api_webhooks_test(webhook_id):
     if result is None:
         return jsonify({"error": "Webhook not found"}), 404
     return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
+# Live Transcription SSE (F9)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/live-stream")
+def api_live_stream():
+    """Server-Sent Events endpoint for real-time transcript updates.
+
+    Returns a stream of SSE events with partial transcription results.
+    Each event is a JSON object with:
+      - finalized: list of {start, end, text} segments (confirmed)
+      - tentative: string (current unconfirmed text, may change)
+      - elapsed: float (seconds since recording started)
+      - done: bool (true when recording/transcription is complete)
+    """
+    def generate():
+        streamer = _streamer
+        if streamer is None:
+            # No live transcription active — send error and close
+            data = json.dumps({"error": "No live transcription active", "done": True})
+            yield f"data: {data}\n\n"
+            return
+
+        for update in streamer.updates():
+            data = {
+                "finalized": [
+                    {"start": s.start, "end": s.end, "text": s.text}
+                    for s in update.finalized_segments
+                ],
+                "tentative": update.tentative_text,
+                "elapsed": round(update.elapsed, 1),
+                "done": update.done,
+            }
+            if update.error:
+                data["error"] = update.error
+            yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+            if update.done:
+                return
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering if proxied
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

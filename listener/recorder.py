@@ -37,14 +37,16 @@ class Recorder:
         recorder.stop()
     """
 
-    def __init__(self, device: int | None = None, channels: int = 1):
+    def __init__(self, device: int | None = None, channels: int = 1, on_audio=None):
         self.device = device
         self.channels = channels
+        self.on_audio = on_audio  # optional callback: fn(numpy_array, sample_rate)
         self._stream: sd.InputStream | None = None
         self._file: sf.SoundFile | None = None
         self._recording = False
         self._start_time: float = 0
         self._output_path: str = ""
+        self._sample_rate: int = 0
 
     def start(self, output_path: str) -> None:
         """Start recording to the given WAV file."""
@@ -66,6 +68,7 @@ class Recorder:
         self._recording = True
         self._start_time = time.time()
 
+        self._sample_rate = sample_rate
         self._stream = sd.InputStream(
             device=self.device,
             samplerate=sample_rate,
@@ -80,6 +83,12 @@ class Recorder:
             print(f"  Audio warning: {status}", file=sys.stderr)
         if self._recording and self._file is not None:
             self._file.write(indata.copy())
+        # Feed audio to streaming transcriber if hook is set
+        if self._recording and self.on_audio is not None:
+            try:
+                self.on_audio(indata.copy(), self._sample_rate)
+            except Exception:
+                pass  # never let the hook crash the audio callback
 
     def stop(self) -> str:
         """Stop recording and return the output file path."""

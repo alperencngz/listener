@@ -290,6 +290,47 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .wh-status.ok{color:#16a34a}
 .wh-status.fail{color:#ef4444}
 .wh-empty{text-align:center;color:#94a3b8;font-size:13px;padding:12px 0}
+
+/* ---- Live Transcription (F9) ---- */
+.live-panel{
+  display:none;margin-top:12px;
+  background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;
+  overflow:hidden;
+}
+.live-panel.open{display:block;animation:fadeUp .3s ease}
+.live-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:#eef2ff;border-bottom:1px solid #e2e8f0;
+}
+.live-header h3{font-size:13px;font-weight:700;color:#6366f1;margin:0}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;background:#ef4444;
+  animation:livePulse 1.5s ease-in-out infinite;
+}
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.3}}
+.live-body{
+  max-height:280px;overflow-y:auto;padding:14px 16px;
+  font-size:13px;line-height:1.7;color:#334155;
+}
+.live-body::-webkit-scrollbar{width:5px}
+.live-body::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.live-finalized{color:#1e293b}
+.live-finalized .live-seg{margin-bottom:4px}
+.live-finalized .live-ts{
+  font-family:'SF Mono',SFMono-Regular,Menlo,monospace;
+  font-size:11px;color:#6366f1;background:#eef2ff;
+  padding:1px 4px;border-radius:3px;margin-right:4px;
+}
+.live-tentative{
+  color:#94a3b8;font-style:italic;
+  border-left:2px solid #c7d2fe;padding-left:10px;margin-top:6px;
+}
+.live-empty{color:#94a3b8;font-size:12px;text-align:center;padding:20px 0}
+.live-status{
+  padding:6px 16px;font-size:11px;color:#94a3b8;
+  background:#f1f5f9;border-top:1px solid #e2e8f0;
+  display:flex;align-items:center;gap:6px;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
@@ -320,6 +361,10 @@ select:disabled{opacity:.45;cursor:not-allowed}
         <input type="checkbox" id="skip-analysis">
         <label for="skip-analysis">Skip Claude analysis (transcript only)</label>
       </div>
+      <div class="cb-row">
+        <input type="checkbox" id="live-transcription" checked>
+        <label for="live-transcription">Live transcription (show text while recording)</label>
+      </div>
     </div>
   </div>
 
@@ -331,6 +376,18 @@ select:disabled{opacity:.45;cursor:not-allowed}
     </button>
     <div id="timer" class="timer">00:00</div>
     <div id="stxt" class="stxt">Ready</div>
+  </div>
+
+  <!-- Live Transcription Panel (F9) -->
+  <div class="live-panel" id="live-panel">
+    <div class="live-header">
+      <h3>Live Transcript</h3>
+      <div class="live-dot" id="live-dot"></div>
+    </div>
+    <div class="live-body" id="live-body">
+      <div class="live-empty">Waiting for speech...</div>
+    </div>
+    <div class="live-status" id="live-status">Connecting...</div>
   </div>
 
   <!-- Viewer -->
@@ -412,10 +469,12 @@ async function toggle(){
 }
 
 async function doStart(){
+  const liveEnabled=Q('#live-transcription').checked;
   const body={
     device:val('device')!==''?parseInt(val('device')):null,
     language:val('language')||null,
     skip_analysis:Q('#skip-analysis').checked,
+    live_transcription:liveEnabled,
   };
   const r=await f('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){const d=await r.json();alert(d.error);return}
@@ -423,9 +482,11 @@ async function doStart(){
   closeViewer();
   recStart=Date.now();
   tRef=setInterval(tick,100);
+  if(Q('#live-transcription').checked) startLiveStream();
 }
 
 async function doStop(){
+  stopLiveStream();
   await f('/api/stop',{method:'POST'});
   clearInterval(tRef);tRef=null;
   setUI('processing');
@@ -442,6 +503,7 @@ function setUI(state){
   Q('#device').disabled=lock;
   Q('#language').disabled=lock;
   Q('#skip-analysis').disabled=lock;
+  Q('#live-transcription').disabled=lock;
   switch(state){
     case 'idle':
       ic.innerHTML='<div class="ic"></div>';lbl.textContent='Record';
@@ -489,6 +551,8 @@ async function poll(){
     if(d.status!==ui){
       if(d.status==='done'){
         setUI('done');
+        Q('#live-panel').classList.remove('open');
+        closeLiveStream();
         // Build session object from state and open viewer
         const sess={id:d.session_id,title:d.title||'',files:d.files,duration:0,language:''};
         openViewer(sess);
@@ -554,6 +618,8 @@ function openViewer(sess){
 
 function closeViewer(){
   Q('#viewer').classList.remove('open');
+  Q('#live-panel').classList.remove('open');
+  closeLiveStream();
   viewerSession=null;
   document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
 }
@@ -871,6 +937,104 @@ function renderCharts(speakers, speakerNames) {
       }
     });
   }
+}
+
+// ===========================================================================
+// Live Transcription (F9)
+// ===========================================================================
+let _evtSource = null;
+
+function startLiveStream(){
+  const panel = Q('#live-panel');
+  const body = Q('#live-body');
+  const status = Q('#live-status');
+
+  panel.classList.add('open');
+  body.innerHTML = '<div class="live-empty">Waiting for speech...</div>';
+  status.textContent = 'Connecting...';
+
+  // Small delay to let the server start the streamer
+  setTimeout(() => {
+    _evtSource = new EventSource('/api/live-stream');
+
+    _evtSource.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+
+        if (data.error && data.done) {
+          status.textContent = 'Live transcription not available';
+          return;
+        }
+
+        if (data.done) {
+          status.textContent = 'Transcription complete';
+          Q('#live-dot').style.display = 'none';
+          closeLiveStream();
+          return;
+        }
+
+        renderLiveTranscript(data);
+        status.textContent = 'Live \u2022 ' + fmtT(data.elapsed || 0);
+      } catch (err) {
+        console.warn('SSE parse error:', err);
+      }
+    };
+
+    _evtSource.onerror = function() {
+      status.textContent = 'Connection lost \u2014 reconnecting...';
+    };
+
+    _evtSource.onopen = function() {
+      status.textContent = 'Connected \u2014 listening...';
+    };
+  }, 1500);
+}
+
+function stopLiveStream(){
+  closeLiveStream();
+  // Keep panel visible with final content until viewer opens
+}
+
+function closeLiveStream(){
+  if (_evtSource) {
+    _evtSource.close();
+    _evtSource = null;
+  }
+}
+
+function renderLiveTranscript(data){
+  const body = Q('#live-body');
+  let html = '';
+
+  // Finalized segments
+  const segs = data.finalized || [];
+  if (segs.length > 0) {
+    html += '<div class="live-finalized">';
+    segs.forEach(seg => {
+      const ts = fmtLiveTs(seg.start);
+      html += '<div class="live-seg"><span class="live-ts">' + ts + '</span>' + esc(seg.text) + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Tentative text
+  if (data.tentative) {
+    html += '<div class="live-tentative">' + esc(data.tentative) + '</div>';
+  }
+
+  if (!html) {
+    html = '<div class="live-empty">Waiting for speech...</div>';
+  }
+
+  body.innerHTML = html;
+  // Auto-scroll to bottom
+  body.scrollTop = body.scrollHeight;
+}
+
+function fmtLiveTs(secs){
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return pad(m) + ':' + pad(s);
 }
 
 // ===========================================================================

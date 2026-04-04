@@ -139,3 +139,33 @@
 
 ---
 
+## F9: Real-Time Live Transcription
+
+**Timestamp:** 2026-04-05 (automated)
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `listener/streaming.py` (streaming transcription module with WebSocket support)
+- `implementation_plans/f9_implementation_plan.md` (implementation plan)
+
+**Files modified:**
+- `listener/recorder.py` (+11 lines: streaming callback support in RecordingSession)
+- `listener/web/app.py` (+84 lines: WebSocket /ws/stream endpoint, streaming session management)
+- `listener/web/templates/index.html` (+164 lines: Live tab UI with real-time transcript rendering, WebSocket connection management)
+
+**Dependencies added:**
+- None (uses existing dependencies: faster-whisper, flask-socketio)
+
+**Notes:**
+- Streaming module provides real-time transcription with configurable chunk size (default 5 seconds)
+- WebSocket endpoint at /ws/stream handles bidirectional communication for live transcription
+- Frontend: New "Live" tab with start/stop controls, real-time transcript display with auto-scroll
+- RecordingSession now supports optional streaming callback for chunk-based processing
+- Uses faster-whisper's streaming API for low-latency transcription
+- WebSocket connection lifecycle: connect → start recording → stream chunks → stop → disconnect
+- Graceful error handling: reconnection logic, connection state indicators
+- All verification checks passed; no blockers
+
+---
+
