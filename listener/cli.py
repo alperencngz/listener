@@ -62,7 +62,11 @@ def devices():
               help="Skip Claude analysis, only transcribe")
 @click.option("--output-dir", "-o", default="./transcripts",
               help="Output directory (default: ./transcripts)")
-def record_cmd(device, language, model_size, no_analyze, output_dir):
+@click.option("--hf-token", default=None,
+              help="HuggingFace token for speaker diarization (or set HF_TOKEN env var)")
+@click.option("--no-diarize", is_flag=True,
+              help="Skip speaker diarization even if HF token is available")
+def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize):
     """Record a meeting, then transcribe and analyze.
 
     Starts recording from the selected audio input device.
@@ -136,7 +140,8 @@ def record_cmd(device, language, model_size, no_analyze, output_dir):
     recorder.stop()
     click.echo(f"\n\nRecording saved: {audio_path}\n")
 
-    _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp)
+    _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
+                  hf_token=hf_token, no_diarize=no_diarize)
 
 
 # -----------------------------------------------------------------------
@@ -152,11 +157,16 @@ def record_cmd(device, language, model_size, no_analyze, output_dir):
 @click.option("--no-analyze", is_flag=True, help="Skip Claude analysis")
 @click.option("--output-dir", "-o", default="./transcripts",
               help="Output directory")
-def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir):
+@click.option("--hf-token", default=None,
+              help="HuggingFace token for speaker diarization (or set HF_TOKEN env var)")
+@click.option("--no-diarize", is_flag=True,
+              help="Skip speaker diarization even if HF token is available")
+def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize):
     """Transcribe an existing audio file."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    _run_pipeline(audio_file, language, model_size, no_analyze, output_dir, timestamp)
+    _run_pipeline(audio_file, language, model_size, no_analyze, output_dir, timestamp,
+                  hf_token=hf_token, no_diarize=no_diarize)
 
 
 # -----------------------------------------------------------------------
@@ -230,8 +240,9 @@ def automate_cmd(start_from):
 # Shared pipeline
 # -----------------------------------------------------------------------
 
-def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp):
-    """Transcribe audio and optionally analyze with Claude."""
+def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
+                  hf_token=None, no_diarize=False):
+    """Transcribe audio, optionally diarize, and optionally analyze with Claude."""
     from listener.transcriber import transcribe
 
     click.echo("--- Transcription ---\n")
@@ -240,6 +251,23 @@ def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, time
     if not result.segments:
         click.echo("No speech detected in the audio.")
         return
+
+    # Speaker diarization
+    if not no_diarize:
+        from listener.diarizer import get_hf_token
+        token = get_hf_token(cli_token=hf_token)
+        if token:
+            click.echo("\n--- Speaker Diarization ---\n")
+            try:
+                from listener.diarizer import diarize, align_speakers
+                diarization = diarize(audio_path, hf_token=token)
+                result.segments = align_speakers(diarization, result.segments)
+                click.echo(f"Speakers assigned to {len(result.segments)} segments.\n")
+            except Exception as e:
+                click.echo(f"Diarization failed (continuing without speakers): {e}", err=True)
+        else:
+            click.echo("\nNo HuggingFace token found — skipping speaker diarization.")
+            click.echo("Set HF_TOKEN env var or use --hf-token to enable.\n")
 
     transcript_text = result.to_timestamped_text()
     duration_str = _fmt_duration(result.duration)

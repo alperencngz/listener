@@ -141,6 +141,36 @@ select:disabled{opacity:.45;cursor:not-allowed}
 
 .content audio{width:100%;margin:12px 0}
 
+/* ---- Speaker colors ---- */
+.spk{font-weight:700;padding:1px 6px;border-radius:4px;font-size:12px;margin-right:2px}
+.spk-1{color:#6366f1;background:#eef2ff}
+.spk-2{color:#059669;background:#ecfdf5}
+.spk-3{color:#d97706;background:#fffbeb}
+.spk-4{color:#dc2626;background:#fef2f2}
+.spk-5{color:#7c3aed;background:#f5f3ff}
+.spk-6{color:#0891b2;background:#ecfeff}
+.spk-7{color:#be185d;background:#fdf2f8}
+.spk-8{color:#4338ca;background:#eef2ff}
+.spk-unknown{color:#64748b;background:#f1f5f9}
+
+.speaker-legend{
+  display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;
+  padding:10px 14px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;
+}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#475569}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-dot.c1{background:#6366f1}
+.legend-dot.c2{background:#059669}
+.legend-dot.c3{background:#d97706}
+.legend-dot.c4{background:#dc2626}
+.legend-dot.c5{background:#7c3aed}
+.legend-dot.c6{background:#0891b2}
+.legend-dot.c7{background:#be185d}
+.legend-dot.c8{background:#4338ca}
+.legend-dot.cu{background:#64748b}
+
+.talk-time{font-size:11px;color:#94a3b8;margin-left:2px}
+
 .content::-webkit-scrollbar{width:6px}
 .content::-webkit-scrollbar-track{background:transparent}
 .content::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
@@ -369,7 +399,7 @@ async function poll(){
       }
     }
     if(d.status==='processing'&&d.step){
-      const map={transcribing:'Transcribing audio...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
+      const map={transcribing:'Transcribing audio...',diarizing:'Identifying speakers...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
       Q('#stxt').textContent=map[d.step]||'Processing...';
     }
   }catch(e){}
@@ -448,7 +478,11 @@ async function loadTab(tab){
   try{
     const r=await f(`/api/view/${fname}`);
     const md=await r.text();
-    c.innerHTML=renderMd(md);
+    let legendHtml = '';
+    if (tab === 'transcript' && viewerSession?.id) {
+      legendHtml = await loadSpeakerLegend(viewerSession.id);
+    }
+    c.innerHTML = legendHtml + renderMd(md);
   }catch(e){
     c.innerHTML='<p class="empty">Failed to load</p>';
   }
@@ -508,10 +542,46 @@ function renderMd(md){
 
 function il(s){
   return s
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*\*(.*?)\*\*/g, function(m, inner) {
+      // Check if this is a speaker label like "[00:15] Speaker 1:"
+      var spkMatch = inner.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s+(Speaker\s+(\d+)|Unknown):/);
+      if (spkMatch) {
+        var ts = spkMatch[1];
+        var speaker = spkMatch[2];
+        var num = spkMatch[3];
+        var cls = num ? 'spk-' + Math.min(parseInt(num), 8) : 'spk-unknown';
+        return '<span class="ts">[' + ts + ']</span> <span class="spk ' + cls + '">' + speaker + ':</span>';
+      }
+      return '<strong>' + inner + '</strong>';
+    })
     .replace(/\*(.*?)\*/g,'<em>$1</em>')
     .replace(/`(.*?)`/g,'<code>$1</code>')
     .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g,'<span class="ts">[$1]</span>');
+}
+
+// ===========================================================================
+// Speaker Legend
+// ===========================================================================
+async function loadSpeakerLegend(sessionId) {
+  try {
+    const r = await f(`/api/speakers/${sessionId}`);
+    const data = await r.json();
+    const speakers = data.speakers || {};
+    const keys = Object.keys(speakers);
+    if (keys.length === 0) return '';
+
+    let items = '';
+    keys.forEach((label, i) => {
+      const num = label.match(/Speaker\s+(\d+)/);
+      const cls = num ? 'c' + Math.min(parseInt(num[1]), 8) : 'cu';
+      const secs = speakers[label].talk_time_seconds || 0;
+      const timeStr = fmtDur(secs);
+      items += `<div class="legend-item"><span class="legend-dot ${cls}"></span>${esc(label)}<span class="talk-time">${timeStr}</span></div>`;
+    });
+    return `<div class="speaker-legend">${items}</div>`;
+  } catch (e) {
+    return '';
+  }
 }
 
 // ===========================================================================

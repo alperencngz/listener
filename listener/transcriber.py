@@ -14,6 +14,7 @@ class Segment:
     start: float
     end: float
     text: str
+    speaker: str = ""
 
 
 @dataclass
@@ -28,12 +29,19 @@ class TranscriptionResult:
     def full_text(self) -> str:
         return " ".join(s.text for s in self.segments)
 
+    @property
+    def has_speakers(self) -> bool:
+        return any(s.speaker for s in self.segments)
+
     def to_timestamped_text(self) -> str:
-        """Format as timestamped transcript lines."""
+        """Format as timestamped transcript lines, with speaker labels if available."""
         lines = []
         for seg in self.segments:
             ts = _fmt_ts(seg.start)
-            lines.append(f"[{ts}] {seg.text}")
+            if seg.speaker:
+                lines.append(f"**[{ts}] {seg.speaker}:** {seg.text}")
+            else:
+                lines.append(f"[{ts}] {seg.text}")
         return "\n\n".join(lines)
 
 

@@ -203,6 +203,19 @@ def api_download(filename):
     return send_from_directory(OUTPUT_DIR.resolve(), filename, as_attachment=True)
 
 
+@app.route("/api/speakers/<session_id>")
+def api_speakers(session_id):
+    """Return speaker info for a session from its meta.json."""
+    meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
+    if not meta_path.exists():
+        return jsonify({"speakers": {}})
+    try:
+        meta = json.loads(meta_path.read_text())
+        return jsonify({"speakers": meta.get("speakers", {})})
+    except Exception:
+        return jsonify({"speakers": {}})
+
+
 # ---------------------------------------------------------------------------
 # Background processing
 # ---------------------------------------------------------------------------
@@ -222,6 +235,19 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
                 _state["error"] = "No speech detected in the recording"
                 _state["step"] = None
             return
+
+        # Speaker diarization (if HF token is available)
+        try:
+            from listener.diarizer import get_hf_token, diarize, align_speakers
+            hf_token = get_hf_token()
+            if hf_token:
+                with _lock:
+                    _state["step"] = "diarizing"
+                diarization = diarize(audio_path, hf_token=hf_token)
+                result.segments = align_speakers(diarization, result.segments)
+                logger.info("Speaker diarization complete for session %s", session_id)
+        except Exception as e:
+            logger.warning("Diarization failed (continuing without): %s", e)
 
         # Save transcript
         transcript_text = result.to_timestamped_text()
@@ -252,12 +278,22 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
         except Exception as e:
             logger.warning("Title generation failed: %s", e)
 
-        # Save metadata
+        # Save metadata (include speaker info)
+        speaker_info = {}
+        if result.has_speakers:
+            from listener.diarizer import compute_talk_times
+            talk_times = compute_talk_times(result.segments)
+            speaker_info = {
+                label: {"talk_time_seconds": round(secs, 1)}
+                for label, secs in sorted(talk_times.items())
+            }
+
         meta = {
             "title": title,
             "language": result.language,
             "language_probability": result.language_probability,
             "duration": result.duration,
+            "speakers": speaker_info,
         }
         (OUTPUT_DIR / f"{session_id}_meta.json").write_text(json.dumps(meta, ensure_ascii=False))
 
