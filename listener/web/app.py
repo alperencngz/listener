@@ -35,6 +35,9 @@ _state = {
 _recorder = None
 _streamer = None  # StreamingTranscriber instance for live transcription
 
+# In-memory chat sessions, keyed by session_id
+_chat_sessions: dict[str, "ChatSession"] = {}
+
 _INTERNAL_KEYS = {"start_time", "_audio_path", "_language", "_model_size", "_skip_analysis"}
 
 
@@ -261,6 +264,48 @@ def api_analytics(session_id):
         return jsonify(analytics)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Chat with Transcript (F2)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/chat/<session_id>", methods=["POST"])
+def api_chat(session_id):
+    """Send a chat message about a transcript and get AI response."""
+    from listener.chat import ChatSession
+
+    data = request.json or {}
+    message = data.get("message", "").strip()
+    if not message:
+        return jsonify({"error": "Empty message"}), 400
+    transcript_file = OUTPUT_DIR / f"{session_id}_transcript.md"
+    if not transcript_file.exists():
+        return jsonify({"error": "Transcript not found"}), 404
+    transcript = transcript_file.read_text()
+    if session_id not in _chat_sessions:
+        _chat_sessions[session_id] = ChatSession(transcript=transcript)
+    chat = _chat_sessions[session_id]
+    try:
+        response = chat.ask_sync(message)
+    except Exception as e:
+        logger.error("Chat error for session %s: %s", session_id, e)
+        return jsonify({"error": f"Chat failed: {str(e)}"}), 500
+    return jsonify({"response": response, "history_length": len(chat.history)})
+
+
+@app.route("/api/chat/<session_id>/history")
+def api_chat_history(session_id):
+    """Get chat history for a session."""
+    chat = _chat_sessions.get(session_id)
+    return jsonify({"history": chat.history if chat else []})
+
+
+@app.route("/api/chat/<session_id>/clear", methods=["POST"])
+def api_chat_clear(session_id):
+    """Clear chat history for a session."""
+    _chat_sessions.pop(session_id, None)
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------

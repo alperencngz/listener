@@ -169,3 +169,36 @@
 
 ---
 
+## F2: Chat with Transcript
+
+**Timestamp:** 2026-04-05 00:55:34
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `listener/chat.py` (54 lines: ChatSession class with conversation history management, prompt building, Claude integration)
+- `implementation_plans/f2_implementation_plan.md` (implementation plan)
+- `check_and_restart.sh` (helper script, not part of F2)
+
+**Files modified:**
+- `listener/web/app.py` (+45 lines: 3 chat endpoints - /api/chat POST, /history GET, /clear POST; in-memory session storage)
+- `listener/web/templates/index.html` (+241 lines: chat UI with CSS styling, tab integration, message rendering, WebSocket-style chat interface)
+- `.claude/settings.local.json` (automation config updates)
+
+**Dependencies added:**
+- None (uses existing claude-code-sdk dependency from pyproject.toml)
+
+**Notes:**
+- Chat module provides conversational AI interface for asking questions about meeting transcripts
+- ChatSession maintains conversation history (max 20 turns) for context-aware responses
+- Three API endpoints: send message, get history, clear chat history
+- Frontend: New "Chat" tab appears when transcript is available, positioned between Audio and Analytics tabs
+- Chat UI includes: bubble-style messages, markdown rendering for AI responses, thinking indicator, error handling
+- In-memory session storage keyed by session_id (cleared on server restart - acceptable for local tool)
+- Blocking `ask_sync()` implementation suitable for single-user local deployment
+- Reuses existing `renderMd()` function for consistent timestamp and formatting rendering
+- System prompt instructs AI to cite specific timestamps [HH:MM:SS] from transcript
+- All verification checks passed; no blockers
+
+---
+
