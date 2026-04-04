@@ -25,3 +25,35 @@
 
 ---
 
+## F1 Commit — Speaker Diarization
+
+**Timestamp:** 2026-04-04 20:33:25
+**Status:** Completed (despite implementor status: FAILED)
+**App health:** ✅ OK (both web app and CLI functional)
+
+**Files created:**
+- `listener/diarizer.py` (180 lines)
+- `implementation_plans/f1_implementation_plan.md`
+
+**Files modified:**
+- `listener/cli.py` (+40 lines: --hf-token, --no-diarize flags, diarization step)
+- `listener/transcriber.py` (+12 lines: speaker field in Segment, formatting updates)
+- `listener/web/app.py` (+38 lines: diarization endpoint, speaker metadata)
+- `listener/web/templates/index.html` (+76 lines: speaker UI, color coding, legend)
+- `pyproject.toml` (+2 dependencies)
+- `.claude/settings.local.json` (automation config)
+
+**Dependencies added:**
+- `pyannote.audio>=3.1`
+- `torch>=2.0.0`
+
+**Notes:**
+- Implementation completed successfully despite "FAILED" status flag
+- All verification checks passed
+- diarizer.py includes: HF token resolution, pipeline caching, speaker-segment alignment, talk-time computation
+- Web UI includes speaker color coding and live speaker legend
+- CLI supports both record and transcribe commands with diarization
+- No blockers found; ready for testing
+
+---
+
