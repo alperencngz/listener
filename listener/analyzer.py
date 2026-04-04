@@ -58,17 +58,36 @@ Transcript (first portion):
 async def analyze_transcript(
     transcript_text: str,
     model: str = "claude-sonnet-4-5",
+    recipe_id: str | None = None,
 ) -> str:
     """Analyze a meeting transcript using Claude.
+
+    Args:
+        transcript_text: The full transcript text.
+        model: Claude model to use.
+        recipe_id: Optional recipe ID. If provided, uses the recipe's
+            system_prompt and user_prompt_template instead of defaults.
 
     Returns:
         Markdown-formatted analysis.
     """
-    prompt = PROMPT_TEMPLATE.format(transcript=transcript_text)
+    system = SYSTEM_PROMPT
+    prompt_tmpl = PROMPT_TEMPLATE
+
+    if recipe_id:
+        from listener.recipes import get_recipe
+        recipe = get_recipe(recipe_id)
+        if recipe:
+            system = recipe.system_prompt
+            prompt_tmpl = recipe.user_prompt_template
+            if recipe.model:
+                model = recipe.model
+
+    prompt = prompt_tmpl.format(transcript=transcript_text)
 
     return await run_claude_session(
         prompt=prompt,
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system,
         model=model,
         node_name="meeting_analysis",
     )
@@ -77,9 +96,10 @@ async def analyze_transcript(
 def analyze_transcript_sync(
     transcript_text: str,
     model: str = "claude-sonnet-4-5",
+    recipe_id: str | None = None,
 ) -> str:
     """Synchronous wrapper for analyze_transcript."""
-    return asyncio.run(analyze_transcript(transcript_text, model=model))
+    return asyncio.run(analyze_transcript(transcript_text, model=model, recipe_id=recipe_id))
 
 
 async def generate_title(

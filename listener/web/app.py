@@ -38,7 +38,7 @@ _streamer = None  # StreamingTranscriber instance for live transcription
 # In-memory chat sessions, keyed by session_id
 _chat_sessions: dict[str, "ChatSession"] = {}
 
-_INTERNAL_KEYS = {"start_time", "_audio_path", "_language", "_model_size", "_skip_analysis"}
+_INTERNAL_KEYS = {"start_time", "_audio_path", "_language", "_model_size", "_skip_analysis", "_recipe_id"}
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +86,7 @@ def api_start():
     model_size = data.get("model_size", "large-v3")
     skip_analysis = data.get("skip_analysis", False)
     live_transcription = data.get("live_transcription", False)
+    recipe_id = data.get("recipe_id") or None
 
     from listener.recorder import Recorder
 
@@ -133,6 +134,7 @@ def api_start():
             "_language": language,
             "_model_size": model_size,
             "_skip_analysis": skip_analysis,
+            "_recipe_id": recipe_id,
         })
 
     return jsonify({"session_id": session_id})
@@ -151,6 +153,7 @@ def api_stop():
         language = _state["_language"]
         model_size = _state["_model_size"]
         skip_analysis = _state["_skip_analysis"]
+        recipe_id = _state.get("_recipe_id")
         session_id = _state["session_id"]
 
         _state["status"] = "processing"
@@ -169,7 +172,7 @@ def api_stop():
 
     threading.Thread(
         target=_process_recording,
-        args=(audio_path, session_id, language, model_size, skip_analysis),
+        args=(audio_path, session_id, language, model_size, skip_analysis, recipe_id),
         daemon=True,
     ).start()
 
@@ -193,12 +196,13 @@ def api_sessions():
         if name.endswith("_meta") and f.suffix == ".json":
             sid = name[:-5]
             if sid not in session_map:
-                session_map[sid] = {"id": sid, "files": {}, "title": "", "duration": 0, "language": ""}
+                session_map[sid] = {"id": sid, "files": {}, "title": "", "duration": 0, "language": "", "recipe_id": ""}
             try:
                 meta = json.loads(f.read_text())
                 session_map[sid]["title"] = meta.get("title", "")
                 session_map[sid]["duration"] = meta.get("duration", 0)
                 session_map[sid]["language"] = meta.get("language", "")
+                session_map[sid]["recipe_id"] = meta.get("recipe_id", "")
             except Exception:
                 pass
             continue
@@ -264,6 +268,18 @@ def api_analytics(session_id):
         return jsonify(analytics)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Recipes API (F3)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/recipes")
+def api_recipes():
+    """List all available analysis recipes."""
+    from listener.recipes import load_recipes
+    recipes = load_recipes()
+    return jsonify([r.to_dict() for r in recipes])
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +425,7 @@ def api_live_stream():
 # Background processing
 # ---------------------------------------------------------------------------
 
-def _process_recording(audio_path, session_id, language, model_size, skip_analysis):
+def _process_recording(audio_path, session_id, language, model_size, skip_analysis, recipe_id=None):
     try:
         from listener.transcriber import transcribe
 
@@ -493,6 +509,7 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
             "duration": result.duration,
             "speakers": speaker_info,
             "analytics": analytics_data,
+            "recipe_id": recipe_id,
         }
         (OUTPUT_DIR / f"{session_id}_meta.json").write_text(json.dumps(meta, ensure_ascii=False))
 
@@ -503,7 +520,7 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
 
             from listener.analyzer import analyze_transcript_sync
 
-            analysis = analyze_transcript_sync(transcript_text)
+            analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id)
 
             analysis_md = (
                 f"# Meeting Analysis -- {date_display}\n\n"

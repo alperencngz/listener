@@ -402,6 +402,28 @@ select:disabled{opacity:.45;cursor:not-allowed}
   cursor:pointer;transition:all .15s;
 }
 .chat-clear:hover{color:#ef4444;border-color:#fecaca;background:#fef2f2}
+
+/* ---- Recipe Picker (F3) ---- */
+.recipe-select{
+  padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:13px;background:#fff;color:#0f172a;outline:none;
+  transition:border .2s;cursor:pointer;width:100%;
+}
+.recipe-select:focus{border-color:#6366f1}
+.recipe-select:disabled{opacity:.45;cursor:not-allowed}
+.recipe-desc{font-size:11px;color:#94a3b8;margin-top:2px;min-height:15px}
+.recipe-badge{
+  display:inline-block;font-size:10px;font-weight:600;
+  padding:1px 6px;border-radius:4px;margin-left:6px;
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.recipe-badge.builtin{background:#dbeafe;color:#3b82f6}
+.recipe-badge.custom{background:#dcfce7;color:#16a34a}
+.v-recipe{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;color:#6366f1;background:#eef2ff;
+  padding:2px 8px;border-radius:4px;font-weight:600;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
@@ -427,6 +449,13 @@ select:disabled{opacity:.45;cursor:not-allowed}
           <option value="en">Force English</option>
           <option value="tr">Force Turkish</option>
         </select>
+      </div>
+      <div class="fg" style="min-width:200px">
+        <label for="recipe">Analysis Recipe</label>
+        <select id="recipe" class="recipe-select">
+          <option value="">Loading...</option>
+        </select>
+        <div class="recipe-desc" id="recipe-desc"></div>
       </div>
       <div class="cb-row">
         <input type="checkbox" id="skip-analysis">
@@ -514,6 +543,7 @@ const DL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fil
 // ===========================================================================
 (async()=>{
   await loadDevices();
+  await loadRecipes();
   await loadSessions();
   loadWebhooks();
   setInterval(poll, 1200);
@@ -532,6 +562,51 @@ async function loadDevices(){
 }
 
 // ===========================================================================
+// Recipes (F3)
+// ===========================================================================
+let _recipes = [];
+
+async function loadRecipes(){
+  try{
+    const r=await f('/api/recipes');
+    _recipes=await r.json();
+    const s=Q('#recipe');
+    let opts='<option value="">Standard Summary (default)</option>';
+    const cats={};
+    _recipes.forEach(rec=>{
+      if(!cats[rec.category])cats[rec.category]=[];
+      cats[rec.category].push(rec);
+    });
+    // Group by category
+    const catOrder=['general','sales','engineering','management','research','hiring','project'];
+    const catLabels={general:'General',sales:'Sales',engineering:'Engineering',management:'Management',research:'Research',hiring:'Hiring',project:'Project'};
+    catOrder.forEach(cat=>{
+      const items=cats[cat];
+      if(!items)return;
+      opts+=`<optgroup label="${catLabels[cat]||cat}">`;
+      items.forEach(rec=>{
+        // Skip standard_summary in grouped list since it's the default
+        if(rec.id==='standard_summary')return;
+        const badge=rec.is_builtin?' (built-in)':' (custom)';
+        opts+=`<option value="${rec.id}">${esc(rec.name)}${badge}</option>`;
+      });
+      opts+='</optgroup>';
+    });
+    s.innerHTML=opts;
+    s.onchange=function(){
+      const desc=Q('#recipe-desc');
+      const sel=_recipes.find(r=>r.id===this.value);
+      desc.textContent=sel?sel.description:'Comprehensive meeting summary with action items, decisions, and topics';
+    };
+    // Trigger initial description
+    Q('#recipe-desc').textContent='Comprehensive meeting summary with action items, decisions, and topics';
+  }catch(e){
+    console.error('Failed to load recipes:',e);
+    Q('#recipe').innerHTML='<option value="">Standard Summary (default)</option>';
+  }
+}
+
+// ===========================================================================
 // Record
 // ===========================================================================
 async function toggle(){
@@ -546,6 +621,7 @@ async function doStart(){
     language:val('language')||null,
     skip_analysis:Q('#skip-analysis').checked,
     live_transcription:liveEnabled,
+    recipe_id:val('recipe')||null,
   };
   const r=await f('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){const d=await r.json();alert(d.error);return}
@@ -575,6 +651,7 @@ function setUI(state){
   Q('#language').disabled=lock;
   Q('#skip-analysis').disabled=lock;
   Q('#live-transcription').disabled=lock;
+  Q('#recipe').disabled=lock;
   switch(state){
     case 'idle':
       ic.innerHTML='<div class="ic"></div>';lbl.textContent='Record';
@@ -656,6 +733,11 @@ function openViewer(sess){
   let meta=`<span>${dateStr}</span>`;
   if(sess.duration) meta+=`<span>${fmtDur(sess.duration)}</span>`;
   if(sess.language) meta+=`<span>${sess.language.toUpperCase()}</span>`;
+  if(sess.recipe_id){
+    const rec=_recipes.find(r=>r.id===sess.recipe_id);
+    const recName=rec?rec.name:sess.recipe_id;
+    meta+=`<span class="v-recipe">${esc(recName)}</span>`;
+  }
   Q('#v-meta').innerHTML=meta;
 
   // Tabs

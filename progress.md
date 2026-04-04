@@ -202,3 +202,36 @@
 
 ---
 
+## F3: Custom Analysis Recipes
+
+**Timestamp:** 2026-04-05 01:15:00
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `listener/recipes.py` (94 lines: Recipe dataclass, YAML loader for built-in and custom recipes from ~/.listener/recipes/)
+- `listener/recipes/default.yaml` (362 lines: 8 built-in recipes covering general, sales, engineering, management, research, hiring, and project categories)
+- `implementation_plans/f3_implementation_plan.md` (implementation plan with 7 tasks)
+
+**Files modified:**
+- `listener/analyzer.py` (+26 lines: recipe_id parameter in analyze_transcript and analyze_transcript_sync, recipe-based prompt override)
+- `listener/cli.py` (+65 lines: new `recipes` command, --recipe flag for record/transcribe/analyze commands)
+- `listener/web/app.py` (+27 lines: /api/recipes endpoint, recipe_id in state management and processing pipeline)
+- `listener/web/templates/index.html` (+82 lines: recipe dropdown with descriptions, category grouping, recipe badge in viewer meta)
+
+**Dependencies added:**
+- None (pyyaml>=6.0 was already present from F10)
+
+**Notes:**
+- Recipe system allows customizing Claude's analysis prompt and system instructions
+- 8 built-in recipes: standard_summary, sales_call, sprint_retro, one_on_one, customer_discovery, interview_debrief, decision_log, email_draft
+- Recipes organized by category: general, sales, engineering, management, research, hiring, project
+- All recipes include multilingual support (respond in same language as transcript)
+- Recipe loader supports both built-in recipes (listener/recipes/) and custom user recipes (~/.listener/recipes/)
+- Web UI: dropdown with category grouping, live description updates, disabled during recording
+- CLI: new `listener recipes` command lists all available recipes, --recipe flag on record/transcribe/analyze
+- Recipe metadata stored in meta.json and displayed in viewer
+- All verification checks passed; no blockers
+
+---
+

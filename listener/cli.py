@@ -48,6 +48,41 @@ def devices():
 
 
 # -----------------------------------------------------------------------
+# listener recipes
+# -----------------------------------------------------------------------
+
+@cli.command()
+def recipes():
+    """List available analysis recipes."""
+    from listener.recipes import load_recipes
+
+    all_recipes = load_recipes()
+    if not all_recipes:
+        click.echo("No recipes found.")
+        return
+
+    # Group by category
+    categories = {}
+    for r in all_recipes:
+        if r.category not in categories:
+            categories[r.category] = []
+        categories[r.category].append(r)
+
+    click.echo("Available analysis recipes:\n")
+    for cat in sorted(categories.keys()):
+        click.echo(f"  [{cat.upper()}]")
+        for r in categories[cat]:
+            tag = "built-in" if r.is_builtin else "custom"
+            click.echo(f"    {r.id:24s} {r.name} ({tag})")
+            if r.description:
+                click.echo(f"    {'':24s} {r.description}")
+        click.echo()
+
+    click.echo("Use: listener record --recipe <id>")
+    click.echo("  or: listener analyze --recipe <id> transcript.md")
+
+
+# -----------------------------------------------------------------------
 # listener record
 # -----------------------------------------------------------------------
 
@@ -66,7 +101,9 @@ def devices():
               help="HuggingFace token for speaker diarization (or set HF_TOKEN env var)")
 @click.option("--no-diarize", is_flag=True,
               help="Skip speaker diarization even if HF token is available")
-def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize):
+@click.option("--recipe", "-r", default=None,
+              help="Analysis recipe ID (run 'listener recipes' to list)")
+def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe):
     """Record a meeting, then transcribe and analyze.
 
     Starts recording from the selected audio input device.
@@ -141,7 +178,7 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
     click.echo(f"\n\nRecording saved: {audio_path}\n")
 
     _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=hf_token, no_diarize=no_diarize)
+                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe)
 
 
 # -----------------------------------------------------------------------
@@ -161,12 +198,14 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
               help="HuggingFace token for speaker diarization (or set HF_TOKEN env var)")
 @click.option("--no-diarize", is_flag=True,
               help="Skip speaker diarization even if HF token is available")
-def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize):
+@click.option("--recipe", "-r", default=None,
+              help="Analysis recipe ID (run 'listener recipes' to list)")
+def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe):
     """Transcribe an existing audio file."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     _run_pipeline(audio_file, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=hf_token, no_diarize=no_diarize)
+                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe)
 
 
 # -----------------------------------------------------------------------
@@ -177,7 +216,9 @@ def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_
 @click.argument("transcript_file", type=click.Path(exists=True))
 @click.option("--output", "-o", default=None, help="Output file path")
 @click.option("--model", default="claude-sonnet-4-5", help="Claude model")
-def analyze_cmd(transcript_file, output, model):
+@click.option("--recipe", "-r", default=None,
+              help="Analysis recipe ID (run 'listener recipes' to list)")
+def analyze_cmd(transcript_file, output, model, recipe):
     """Analyze an existing transcript file with Claude."""
     from listener.analyzer import analyze_transcript_sync
 
@@ -185,7 +226,7 @@ def analyze_cmd(transcript_file, output, model):
     click.echo("Analyzing transcript with Claude...")
 
     try:
-        analysis = analyze_transcript_sync(text, model=model)
+        analysis = analyze_transcript_sync(text, model=model, recipe_id=recipe)
     except Exception as e:
         click.echo(f"Analysis failed: {e}", err=True)
         sys.exit(1)
@@ -241,7 +282,7 @@ def automate_cmd(start_from):
 # -----------------------------------------------------------------------
 
 def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=None, no_diarize=False):
+                  hf_token=None, no_diarize=False, recipe_id=None):
     """Transcribe audio, optionally diarize, and optionally analyze with Claude."""
     from listener.transcriber import transcribe
 
@@ -292,12 +333,20 @@ def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, time
 
     # Analyze
     click.echo("\n--- Analysis ---\n")
+    if recipe_id:
+        from listener.recipes import get_recipe
+        rec = get_recipe(recipe_id)
+        if rec:
+            click.echo(f"Using recipe: {rec.name}")
+        else:
+            click.echo(f"Warning: recipe '{recipe_id}' not found, using default analysis")
+            recipe_id = None
     click.echo("Analyzing with Claude...")
 
     from listener.analyzer import analyze_transcript_sync
 
     try:
-        analysis = analyze_transcript_sync(transcript_text)
+        analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id)
 
         analysis_md = (
             f"# Meeting Analysis -- {date_display}\n\n"
