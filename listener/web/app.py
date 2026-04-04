@@ -233,6 +233,54 @@ def api_analytics(session_id):
 
 
 # ---------------------------------------------------------------------------
+# Webhooks API (F10)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/webhooks")
+def api_webhooks_list():
+    """List all configured webhooks."""
+    from listener.webhooks import list_webhooks
+    return jsonify(list_webhooks())
+
+
+@app.route("/api/webhooks", methods=["POST"])
+def api_webhooks_add():
+    """Add a new webhook."""
+    from listener.webhooks import add_webhook
+    data = request.json or {}
+    url = data.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+    if not url.startswith(("http://", "https://")):
+        return jsonify({"error": "URL must start with http:// or https://"}), 400
+    events = data.get("events", ["session_complete"])
+    fmt = data.get("format", "json")
+    if fmt not in ("json", "slack", "markdown"):
+        return jsonify({"error": "Format must be json, slack, or markdown"}), 400
+    webhook = add_webhook(url, events=events, format=fmt)
+    return jsonify(webhook), 201
+
+
+@app.route("/api/webhooks/<webhook_id>", methods=["DELETE"])
+def api_webhooks_delete(webhook_id):
+    """Remove a webhook by ID."""
+    from listener.webhooks import remove_webhook
+    if remove_webhook(webhook_id):
+        return jsonify({"ok": True})
+    return jsonify({"error": "Webhook not found"}), 404
+
+
+@app.route("/api/webhooks/test/<webhook_id>", methods=["POST"])
+def api_webhooks_test(webhook_id):
+    """Send a test payload to a specific webhook."""
+    from listener.webhooks import build_test_payload
+    result = build_test_payload(webhook_id, base_url=request.host_url.rstrip("/"))
+    if result is None:
+        return jsonify({"error": "Webhook not found"}), 404
+    return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
 # Background processing
 # ---------------------------------------------------------------------------
 
@@ -360,6 +408,27 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
                         )
                 except Exception as e:
                     logger.warning("Topic extraction failed: %s", e)
+
+        # F10: Fire webhooks asynchronously
+        try:
+            from listener.webhooks import fire_webhooks
+            webhook_meta = dict(meta)  # copy meta dict
+            # Attach analysis text for summary/action_items extraction
+            analysis_file = files.get("analysis")
+            if analysis_file:
+                try:
+                    webhook_meta["_analysis_text"] = (OUTPUT_DIR / analysis_file).read_text()[:1000]
+                except Exception:
+                    pass
+            fire_webhooks(
+                event="session_complete",
+                session_id=session_id,
+                meta=webhook_meta,
+                files=files,
+                base_url="http://127.0.0.1:8642",
+            )
+        except Exception as e:
+            logger.warning("Webhook firing failed: %s", e)
 
         with _lock:
             _state["status"] = "done"

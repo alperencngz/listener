@@ -248,6 +248,48 @@ select:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:500px){
   .analytics-grid{grid-template-columns:1fr}
 }
+
+/* ---- Webhooks (F10) ---- */
+.webhook-list{list-style:none;padding:0;margin:0}
+.webhook-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;margin-bottom:6px;background:#f8fafc;
+  border-radius:8px;border:1px solid #e2e8f0;gap:8px;
+}
+.webhook-item .wh-info{flex:1;min-width:0}
+.webhook-item .wh-url{font-size:13px;color:#1e293b;font-weight:500;word-break:break-all}
+.webhook-item .wh-meta{font-size:11px;color:#94a3b8;margin-top:2px}
+.webhook-item .wh-actions{display:flex;gap:4px;flex-shrink:0}
+.wh-btn{
+  padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;
+  background:#fff;font-size:11px;font-weight:600;cursor:pointer;
+  transition:all .15s;color:#475569;
+}
+.wh-btn:hover{background:#f1f5f9;border-color:#cbd5e1}
+.wh-btn.del{color:#ef4444;border-color:#fecaca}
+.wh-btn.del:hover{background:#fef2f2;border-color:#ef4444}
+.wh-btn.test{color:#6366f1;border-color:#c7d2fe}
+.wh-btn.test:hover{background:#eef2ff;border-color:#6366f1}
+.wh-form{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.wh-form input[type="url"]{
+  flex:1;min-width:200px;padding:7px 10px;border:1px solid #e2e8f0;
+  border-radius:8px;font-size:13px;outline:none;
+}
+.wh-form input[type="url"]:focus{border-color:#6366f1}
+.wh-form select{
+  padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:13px;background:#fff;
+}
+.wh-add-btn{
+  padding:7px 16px;background:#6366f1;color:#fff;border:none;
+  border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+  transition:background .15s;
+}
+.wh-add-btn:hover{background:#4f46e5}
+.wh-status{font-size:12px;margin-top:6px;min-height:18px}
+.wh-status.ok{color:#16a34a}
+.wh-status.fail{color:#ef4444}
+.wh-empty{text-align:center;color:#94a3b8;font-size:13px;padding:12px 0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
@@ -309,6 +351,24 @@ select:disabled{opacity:.45;cursor:not-allowed}
       <li class="empty">No sessions yet</li>
     </ul>
   </div>
+
+  <!-- Webhooks (F10) -->
+  <div class="card" id="webhooks-card">
+    <div class="card-label">Webhooks</div>
+    <ul class="webhook-list" id="wh-list">
+      <li class="wh-empty">Loading...</li>
+    </ul>
+    <div class="wh-form">
+      <input type="url" id="wh-url" placeholder="https://hooks.slack.com/..." />
+      <select id="wh-format">
+        <option value="json">JSON</option>
+        <option value="slack">Slack</option>
+        <option value="markdown">Markdown</option>
+      </select>
+      <button class="wh-add-btn" onclick="addWebhook()">Add</button>
+    </div>
+    <div class="wh-status" id="wh-status"></div>
+  </div>
 </div>
 
 <script>
@@ -327,6 +387,7 @@ const DL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fil
 (async()=>{
   await loadDevices();
   await loadSessions();
+  loadWebhooks();
   setInterval(poll, 1200);
 })();
 
@@ -847,6 +908,78 @@ function Q(sel){return document.querySelector(sel)}
 function val(id){return document.getElementById(id).value}
 function f(url,opts){return fetch(url,opts)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+// ===========================================================================
+// Webhooks (F10)
+// ===========================================================================
+async function loadWebhooks(){
+  try{
+    const r=await f('/api/webhooks');
+    const hooks=await r.json();
+    const ul=Q('#wh-list');
+    if(!hooks.length){
+      ul.innerHTML='<li class="wh-empty">No webhooks configured</li>';
+      return;
+    }
+    ul.innerHTML=hooks.map(h=>{
+      const evts=h.events?h.events.join(', '):'session_complete';
+      return `<li class="webhook-item">
+        <div class="wh-info">
+          <div class="wh-url">${esc(h.url)}</div>
+          <div class="wh-meta">${esc(h.format||'json')} &middot; ${esc(evts)}</div>
+        </div>
+        <div class="wh-actions">
+          <button class="wh-btn test" onclick="testWebhook('${esc(h.id)}')">Test</button>
+          <button class="wh-btn del" onclick="deleteWebhook('${esc(h.id)}')">Delete</button>
+        </div>
+      </li>`;
+    }).join('');
+  }catch(e){
+    Q('#wh-list').innerHTML='<li class="wh-empty">Failed to load webhooks</li>';
+  }
+}
+
+async function addWebhook(){
+  const url=Q('#wh-url').value.trim();
+  const fmt=Q('#wh-format').value;
+  const st=Q('#wh-status');
+  if(!url){st.textContent='Please enter a URL';st.className='wh-status fail';return}
+  try{
+    const r=await f('/api/webhooks',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url:url,format:fmt,events:['session_complete']})
+    });
+    if(!r.ok){const d=await r.json();st.textContent=d.error||'Failed';st.className='wh-status fail';return}
+    Q('#wh-url').value='';
+    st.textContent='Webhook added';st.className='wh-status ok';
+    setTimeout(()=>{st.textContent=''},3000);
+    loadWebhooks();
+  }catch(e){st.textContent='Error adding webhook';st.className='wh-status fail'}
+}
+
+async function deleteWebhook(id){
+  if(!confirm('Remove this webhook?'))return;
+  try{
+    await f(`/api/webhooks/${id}`,{method:'DELETE'});
+    loadWebhooks();
+  }catch(e){console.error(e)}
+}
+
+async function testWebhook(id){
+  const st=Q('#wh-status');
+  st.textContent='Sending test...';st.className='wh-status';
+  try{
+    const r=await f(`/api/webhooks/test/${id}`,{method:'POST'});
+    const d=await r.json();
+    if(d.success){
+      st.textContent='Test delivered: '+d.message;st.className='wh-status ok';
+    }else{
+      st.textContent='Test failed: '+d.message;st.className='wh-status fail';
+    }
+    setTimeout(()=>{st.textContent=''},5000);
+  }catch(e){st.textContent='Test error';st.className='wh-status fail'}
+}
 </script>
 </body>
 </html>

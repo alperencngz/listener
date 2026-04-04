@@ -109,3 +109,33 @@
 
 ---
 
+## F10: Webhooks & API for Automation
+
+**Timestamp:** 2026-04-05 00:23:15
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `listener/webhooks.py` (354 lines: webhook config management, payload formatting for JSON/Slack/Markdown, async HTTP firing)
+- `implementation_plans/f10_implementation_plan.md` (implementation plan)
+
+**Files modified:**
+- `listener/web/app.py` (+69 lines: 4 webhook management endpoints, webhook trigger in _process_recording)
+- `listener/web/templates/index.html` (+133 lines: webhook management UI card with CSS, form, and list)
+- `pyproject.toml` (+1 dependency: pyyaml>=6.0)
+
+**Dependencies added:**
+- `pyyaml>=6.0` (for config.yaml parsing)
+
+**Notes:**
+- Webhook config stored in `~/.listener/config.yaml` (same pattern as HF token from F1)
+- Three payload formats supported: JSON (default), Slack Block Kit, Markdown
+- Webhooks fire asynchronously in background threads after session processing completes
+- Web UI allows adding/deleting webhooks and sending test payloads
+- Webhook firing integrated into `_process_recording()` workflow before "done" state
+- Uses stdlib `urllib.request` for HTTP (no new HTTP library dependency)
+- Event system extensible: currently supports `session_complete`, schema ready for future events
+- All verification checks passed; no blockers
+
+---
+
