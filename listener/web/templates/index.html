@@ -205,6 +205,35 @@ select:disabled{opacity:.45;cursor:not-allowed}
 }
 .dl-btn:hover{background:#f1f5f9;border-color:#cbd5e1;color:#334155}
 .dl-btn svg{width:14px;height:14px}
+/* ---- Export dropdown ---- */
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.export-dropdown{position:relative;display:inline-block}
+.export-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:12px;font-weight:600;color:#475569;background:#fff;
+  cursor:pointer;transition:all .2s;
+}
+.export-btn:hover{background:#f1f5f9;border-color:#cbd5e1;color:#334155}
+.export-btn svg{width:14px;height:14px}
+.export-menu{
+  display:none;position:absolute;top:100%;left:0;z-index:20;
+  margin-top:4px;background:#fff;border:1px solid #e2e8f0;
+  border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.1);
+  min-width:160px;padding:6px 0;
+}
+.export-menu.open{display:block}
+.export-menu a{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;font-size:13px;color:#334155;
+  text-decoration:none;transition:background .15s;
+}
+.export-menu a:hover{background:#f1f5f9}
+.export-menu a .efmt{
+  font-size:10px;font-weight:700;color:#6366f1;
+  background:#eef2ff;padding:2px 6px;border-radius:4px;
+  min-width:36px;text-align:center;
+}
 
 /* ---- Sessions list ---- */
 .slist{list-style:none}
@@ -566,6 +595,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <div class="tabs" id="tabs"></div>
     <div class="content" id="content"></div>
     <div class="dl-row" id="dl-row"></div>
+    <div class="export-row" id="export-row"></div>
   </div>
 
   <!-- Sessions -->
@@ -610,6 +640,7 @@ let tRef = null, recStart = null;
 let viewerSession = null;  // currently viewed session data
 
 const DL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 11.586V4a1 1 0 011-1z"/><path d="M3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg>';
+const EXPORT_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 11.25a.75.75 0 001.5 0v-2.546l.943.942a.75.75 0 101.06-1.06l-2.22-2.22a.75.75 0 00-1.06 0l-2.22 2.22a.75.75 0 001.06 1.06l.937-.938v2.542z" clip-rule="evenodd"/></svg>';
 
 // ===========================================================================
 // Init
@@ -832,6 +863,17 @@ function openViewer(sess){
   if(files.audio) dl+=`<a class="dl-btn" href="/api/download/${files.audio}" download>${DL_ICON} Audio</a>`;
   Q('#dl-row').innerHTML=dl;
 
+  // Export buttons (F6)
+  let exp='<div class="export-dropdown">';
+  exp+=`<button class="export-btn" onclick="toggleExportMenu()">${EXPORT_ICON} Export As...</button>`;
+  exp+='<div class="export-menu" id="export-menu">';
+  exp+=`<a href="/api/export/${sess.id}?format=docx" download><span class="efmt">DOCX</span> Word Document</a>`;
+  exp+=`<a href="/api/export/${sess.id}?format=pdf" download><span class="efmt">PDF</span> PDF Document</a>`;
+  exp+=`<a href="/api/export/${sess.id}?format=srt" download><span class="efmt">SRT</span> Subtitles</a>`;
+  exp+=`<a href="/api/export/${sess.id}?format=json" download><span class="efmt">JSON</span> Structured Data</a>`;
+  exp+='</div></div>';
+  Q('#export-row').innerHTML=exp;
+
   v.classList.add('open');
 
   // Load first tab
@@ -845,6 +887,23 @@ function openViewer(sess){
   });
 }
 
+function toggleExportMenu(){
+  const m=Q('#export-menu');
+  m.classList.toggle('open');
+  // Close when clicking outside
+  if(m.classList.contains('open')){
+    setTimeout(()=>{
+      const close=e=>{
+        if(!m.contains(e.target)&&!e.target.closest('.export-btn')){
+          m.classList.remove('open');
+          document.removeEventListener('click',close);
+        }
+      };
+      document.addEventListener('click',close);
+    },0);
+  }
+}
+
 function closeViewer(){
   // F5: Clean up transcript audio
   if (_transcriptAudio) {
@@ -852,6 +911,7 @@ function closeViewer(){
     _transcriptAudio.pause();
     _transcriptAudio = null;
   }
+  Q('#export-row').innerHTML='';
   Q('#viewer').classList.remove('open');
   Q('#live-panel').classList.remove('open');
   closeLiveStream();

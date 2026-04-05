@@ -330,3 +330,44 @@
 
 ---
 
+## F6: Multi-Format Export
+
+**Timestamp:** 2026-04-05 08:18:01
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `implementation_plans/f6_implementation_plan.md` (implementation plan)
+- `listener/export/__init__.py` (export module initialization with format registry)
+- `listener/export/docx_export.py` (Word document export with formatting and speaker labels)
+- `listener/export/json_export.py` (structured JSON export with full session metadata)
+- `listener/export/pdf_export.py` (PDF export with custom formatting using FPDF2)
+- `listener/export/srt_export.py` (SRT subtitle export with proper timestamp formatting)
+- `listener/export/fonts/` (font directory for PDF export)
+
+**Files modified:**
+- `listener/cli.py` (+102 lines: new `export` command with format selection, output path specification, validation)
+- `listener/web/app.py` (+88 lines: /api/export/<format> endpoint, file serving, temporary file cleanup)
+- `listener/web/templates/index.html` (+60 lines: export button group in viewer header, format-specific download handling)
+- `pyproject.toml` (+2 dependencies)
+
+**Dependencies added:**
+- `python-docx>=1.1.0` (for DOCX export with document formatting)
+- `fpdf2>=2.8.0` (for PDF generation with UTF-8 support)
+
+**Notes:**
+- Export module provides 5 formats: TXT (plain text), JSON (structured data), DOCX (Word), PDF (formatted), SRT (subtitles)
+- All formats support speaker labels (when diarization is enabled)
+- CLI: `listener export <session_id> --format <format> --output <path>` validates session existence and format
+- Web API: `/api/export/<format>/<session_id>` generates file on-demand with proper Content-Disposition headers
+- Frontend: Export button group in viewer header with 5 format options, dynamic filename generation
+- JSON export includes full metadata: speakers, recipe, analytics, processing timestamps
+- DOCX export includes formatted paragraphs with bold speaker labels and timestamps
+- PDF export uses DejaVu fonts for UTF-8 character support (multilingual transcripts)
+- SRT export follows subtitle spec: sequential numbering, HH:MM:SS,mmm timestamps, 2-second segments
+- TXT export reuses existing TranscriptionResult.to_timestamped_text() method
+- Temporary files automatically cleaned up after download (5-minute TTL)
+- All verification checks passed; no blockers
+
+---
+

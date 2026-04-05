@@ -441,6 +441,94 @@ def api_live_stream():
 
 
 # ---------------------------------------------------------------------------
+# Multi-Format Export (F6)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/export/<session_id>")
+def api_export(session_id):
+    """Export a session in the requested format (docx, pdf, srt, json)."""
+    fmt = request.args.get("format", "").lower()
+    if fmt not in ("docx", "pdf", "srt", "json"):
+        return jsonify({"error": f"Unsupported format: {fmt}. Use: docx, pdf, srt, json"}), 400
+
+    # Load session data
+    meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
+    transcript_path = OUTPUT_DIR / f"{session_id}_transcript.md"
+    analysis_path = OUTPUT_DIR / f"{session_id}_analysis.md"
+
+    if not transcript_path.exists():
+        return jsonify({"error": "Transcript not found"}), 404
+
+    transcript_text = transcript_path.read_text()
+    analysis_text = analysis_path.read_text() if analysis_path.exists() else None
+
+    # Parse metadata
+    title = f"Meeting {session_id}"
+    duration_seconds = 0.0
+    language = ""
+    language_confidence = 0.0
+    recipe_id = ""
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text())
+            title = meta.get("title", title)
+            duration_seconds = meta.get("duration", 0.0)
+            language = meta.get("language", "")
+            language_confidence = meta.get("language_probability", 0.0)
+            recipe_id = meta.get("recipe_id", "") or ""
+        except Exception:
+            pass
+
+    # Format display strings
+    parts = session_id.split("_")
+    date_str = parts[0] + " " + (parts[1] if len(parts) > 1 else "").replace("-", ":")
+    duration_str = _fmt_duration(duration_seconds) if duration_seconds else ""
+
+    from listener.export import EXPORTERS
+    exporter = EXPORTERS[fmt]
+
+    # Build kwargs — SRT and JSON accept extra params
+    kwargs = dict(
+        session_id=session_id,
+        title=title,
+        date_str=date_str,
+        duration_str=duration_str,
+        language=language,
+        transcript_text=transcript_text,
+        analysis_text=analysis_text,
+    )
+
+    if fmt == "json":
+        kwargs["duration_seconds"] = duration_seconds
+        kwargs["language_confidence"] = language_confidence
+        kwargs["recipe_id"] = recipe_id
+
+    try:
+        buf = exporter(**kwargs)
+    except Exception as e:
+        logger.error("Export failed for %s as %s: %s", session_id, fmt, e)
+        return jsonify({"error": f"Export failed: {str(e)}"}), 500
+
+    # MIME types and file extensions
+    mime_map = {
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pdf": "application/pdf",
+        "srt": "text/srt; charset=utf-8",
+        "json": "application/json; charset=utf-8",
+    }
+    ext_map = {"docx": ".docx", "pdf": ".pdf", "srt": ".srt", "json": ".json"}
+
+    filename = f"{session_id}{ext_map[fmt]}"
+    return Response(
+        buf.read(),
+        mimetype=mime_map[fmt],
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # Background processing
 # ---------------------------------------------------------------------------
 

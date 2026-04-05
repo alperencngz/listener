@@ -114,6 +114,108 @@ def search(query, limit):
 
 
 # -----------------------------------------------------------------------
+# listener export
+# -----------------------------------------------------------------------
+
+@cli.command("export")
+@click.argument("session_id")
+@click.option("--format", "-f", "fmt", required=True,
+              type=click.Choice(["docx", "pdf", "srt", "json"], case_sensitive=False),
+              help="Export format")
+@click.option("--output-dir", "-o", default="./transcripts",
+              help="Directory containing session files (default: ./transcripts)")
+@click.option("--output-file", default=None,
+              help="Output file path (default: <session_id>.<format> in output-dir)")
+def export_cmd(session_id, fmt, output_dir, output_file):
+    """Export a meeting transcript in various formats.
+
+    SESSION_ID is the session identifier (e.g., 2026-04-04_14-30-00).
+
+    Examples:
+        listener export 2026-04-04_14-30-00 -f pdf
+        listener export 2026-04-04_14-30-00 -f docx -o ./exports
+        listener export 2026-04-04_14-30-00 -f srt --output-file meeting.srt
+    """
+    import json as _json
+    from listener.export import EXPORTERS
+
+    out_dir = Path(output_dir)
+    transcript_path = out_dir / f"{session_id}_transcript.md"
+    analysis_path = out_dir / f"{session_id}_analysis.md"
+    meta_path = out_dir / f"{session_id}_meta.json"
+
+    if not transcript_path.exists():
+        click.echo(f"Error: transcript not found at {transcript_path}", err=True)
+        click.echo(f"Available sessions in {out_dir}:")
+        if out_dir.exists():
+            sessions = set()
+            for f in out_dir.iterdir():
+                if f.stem.endswith("_transcript"):
+                    sessions.add(f.stem[:-11])  # strip _transcript
+            for s in sorted(sessions):
+                click.echo(f"  {s}")
+        sys.exit(1)
+
+    transcript_text = transcript_path.read_text()
+    analysis_text = analysis_path.read_text() if analysis_path.exists() else None
+
+    # Load metadata
+    title = f"Meeting {session_id}"
+    duration_seconds = 0.0
+    language = ""
+    language_confidence = 0.0
+    recipe_id = ""
+    if meta_path.exists():
+        try:
+            meta = _json.loads(meta_path.read_text())
+            title = meta.get("title", title)
+            duration_seconds = meta.get("duration", 0.0)
+            language = meta.get("language", "")
+            language_confidence = meta.get("language_probability", 0.0)
+            recipe_id = meta.get("recipe_id", "") or ""
+        except Exception:
+            pass
+
+    parts = session_id.split("_")
+    date_str = parts[0] + " " + (parts[1] if len(parts) > 1 else "").replace("-", ":")
+    duration_str = _fmt_duration(duration_seconds) if duration_seconds else ""
+
+    exporter = EXPORTERS[fmt.lower()]
+
+    kwargs = dict(
+        session_id=session_id,
+        title=title,
+        date_str=date_str,
+        duration_str=duration_str,
+        language=language,
+        transcript_text=transcript_text,
+        analysis_text=analysis_text,
+    )
+    if fmt.lower() == "json":
+        kwargs["duration_seconds"] = duration_seconds
+        kwargs["language_confidence"] = language_confidence
+        kwargs["recipe_id"] = recipe_id
+
+    click.echo(f"Exporting {session_id} as {fmt.upper()}...")
+
+    try:
+        buf = exporter(**kwargs)
+    except Exception as e:
+        click.echo(f"Export failed: {e}", err=True)
+        sys.exit(1)
+
+    ext_map = {"docx": ".docx", "pdf": ".pdf", "srt": ".srt", "json": ".json"}
+    if output_file:
+        dest = Path(output_file)
+    else:
+        dest = out_dir / f"{session_id}{ext_map[fmt.lower()]}"
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(buf.read())
+    click.echo(f"Exported: {dest}")
+
+
+# -----------------------------------------------------------------------
 # listener record
 # -----------------------------------------------------------------------
 
