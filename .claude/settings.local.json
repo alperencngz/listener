@@ -23,7 +23,14 @@
       "Bash(python3 -c \"import docx; print\\(docx.__version__\\)\")",
       "Bash(python3 -c \"import sqlite3; print\\(sqlite3.sqlite_version\\)\")",
       "Bash(git -C /Users/alperencngzz/Desktop/listener add -A)",
-      "Bash(git -C /Users/alperencngzz/Desktop/listener commit -m ':*)"
+      "Bash(git -C /Users/alperencngzz/Desktop/listener commit -m ':*)",
+      "Bash(git -C /Users/alperencngzz/Desktop/listener add listener/automation/orchestrate.py)",
+      "Bash(python3:*)",
+      "Bash(pip show:*)",
+      "Bash(/opt/anaconda3/bin/python3:*)",
+      "Bash(git:*)",
+      "Bash(chmod +x:*)",
+      "Bash(crontab:*)"
     ]
   }
 }
