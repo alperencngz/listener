@@ -134,7 +134,9 @@ def search(query, limit):
               help="Skip speaker diarization even if HF token is available")
 @click.option("--recipe", "-r", default=None,
               help="Analysis recipe ID (run 'listener recipes' to list)")
-def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe):
+@click.option("--no-denoise", is_flag=True,
+              help="Skip noise reduction preprocessing")
+def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe, no_denoise):
     """Record a meeting, then transcribe and analyze.
 
     Starts recording from the selected audio input device.
@@ -209,7 +211,7 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
     click.echo(f"\n\nRecording saved: {audio_path}\n")
 
     _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe)
+                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe, no_denoise=no_denoise)
 
 
 # -----------------------------------------------------------------------
@@ -231,12 +233,14 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
               help="Skip speaker diarization even if HF token is available")
 @click.option("--recipe", "-r", default=None,
               help="Analysis recipe ID (run 'listener recipes' to list)")
-def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe):
+@click.option("--no-denoise", is_flag=True,
+              help="Skip noise reduction preprocessing")
+def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe, no_denoise):
     """Transcribe an existing audio file."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     _run_pipeline(audio_file, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe)
+                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe, no_denoise=no_denoise)
 
 
 # -----------------------------------------------------------------------
@@ -313,12 +317,25 @@ def automate_cmd(start_from):
 # -----------------------------------------------------------------------
 
 def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=None, no_diarize=False, recipe_id=None):
+                  hf_token=None, no_diarize=False, recipe_id=None, no_denoise=False):
     """Transcribe audio, optionally diarize, and optionally analyze with Claude."""
     from listener.transcriber import transcribe
 
+    # F7: Noise preprocessing
+    transcribe_path = audio_path
+    if not no_denoise:
+        click.echo("--- Noise Reduction ---\n")
+        try:
+            from listener.preprocessor import preprocess_audio
+            cleaned_path = audio_path.replace(".wav", "_cleaned.wav")
+            transcribe_path = preprocess_audio(audio_path, cleaned_path)
+            click.echo(f"Cleaned audio saved: {transcribe_path}\n")
+        except Exception as e:
+            click.echo(f"Noise reduction failed (continuing with original): {e}", err=True)
+            transcribe_path = audio_path
+
     click.echo("--- Transcription ---\n")
-    result = transcribe(audio_path, model_size=model_size, language=language)
+    result = transcribe(transcribe_path, model_size=model_size, language=language)
 
     if not result.segments:
         click.echo("No speech detected in the audio.")

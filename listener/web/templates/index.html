@@ -521,6 +521,10 @@ select:disabled{opacity:.45;cursor:not-allowed}
         <div class="recipe-desc" id="recipe-desc"></div>
       </div>
       <div class="cb-row">
+        <input type="checkbox" id="denoise" checked>
+        <label for="denoise">Enable noise reduction (cleaner audio for transcription)</label>
+      </div>
+      <div class="cb-row">
         <input type="checkbox" id="skip-analysis">
         <label for="skip-analysis">Skip Claude analysis (transcript only)</label>
       </div>
@@ -691,6 +695,7 @@ async function doStart(){
     skip_analysis:Q('#skip-analysis').checked,
     live_transcription:liveEnabled,
     recipe_id:val('recipe')||null,
+    denoise:Q('#denoise').checked,
   };
   const r=await f('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){const d=await r.json();alert(d.error);return}
@@ -718,6 +723,7 @@ function setUI(state){
   const lock=state==='recording'||state==='processing';
   Q('#device').disabled=lock;
   Q('#language').disabled=lock;
+  Q('#denoise').disabled=lock;
   Q('#skip-analysis').disabled=lock;
   Q('#live-transcription').disabled=lock;
   Q('#recipe').disabled=lock;
@@ -782,7 +788,7 @@ async function poll(){
       }
     }
     if(d.status==='processing'&&d.step){
-      const map={transcribing:'Transcribing audio...',diarizing:'Identifying speakers...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
+      const map={denoising:'Reducing noise...',transcribing:'Transcribing audio...',diarizing:'Identifying speakers...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
       Q('#stxt').textContent=map[d.step]||'Processing...';
     }
   }catch(e){}

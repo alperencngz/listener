@@ -299,3 +299,34 @@
 
 ---
 
+## F7: Noise Preprocessing
+
+**Timestamp:** 2026-04-05 08:01:48
+**Status:** completed
+**App health:** ✅ OK (both web app import and CLI verified)
+
+**Files created:**
+- `listener/preprocessor.py` (57 lines: noise reduction module using noisereduce with non-stationary mode)
+- `implementation_plans/f7_implementation_plan.md` (implementation plan)
+
+**Files modified:**
+- `listener/cli.py` (+29 lines: --no-denoise flag for record and transcribe commands, pipeline integration)
+- `listener/web/app.py` (+25 lines: denoise parameter in start/stop endpoints, preprocessing step in _process_recording workflow)
+- `listener/web/templates/index.html` (+8 lines: denoise checkbox control, UI state management, "Reducing noise..." processing step)
+- `pyproject.toml` (+1 dependency: noisereduce>=3.0.0)
+
+**Dependencies added:**
+- `noisereduce>=3.0.0`
+
+**Notes:**
+- Non-stationary noise reduction adapts to time-varying background noise (HVAC, cafe chatter, etc.)
+- Configured with prop_decrease=0.75 (moderate reduction to avoid distorting speech harmonics and hurting Whisper accuracy)
+- Preprocessing creates *_cleaned.wav files alongside originals
+- Integrated into both CLI (--no-denoise flag) and web (checkbox, enabled by default) workflows
+- Graceful error handling: falls back to original audio if preprocessing fails, logs warning
+- Preprocessing step shows "Reducing noise..." in web UI status indicator
+- Includes stereo-to-mono conversion for compatibility
+- All verification checks passed; no blockers
+
+---
+

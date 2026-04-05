@@ -38,7 +38,7 @@ _streamer = None  # StreamingTranscriber instance for live transcription
 # In-memory chat sessions, keyed by session_id
 _chat_sessions: dict[str, "ChatSession"] = {}
 
-_INTERNAL_KEYS = {"start_time", "_audio_path", "_language", "_model_size", "_skip_analysis", "_recipe_id"}
+_INTERNAL_KEYS = {"start_time", "_audio_path", "_language", "_model_size", "_skip_analysis", "_recipe_id", "_denoise"}
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +87,7 @@ def api_start():
     skip_analysis = data.get("skip_analysis", False)
     live_transcription = data.get("live_transcription", False)
     recipe_id = data.get("recipe_id") or None
+    denoise = data.get("denoise", True)  # Default: noise reduction enabled
 
     from listener.recorder import Recorder
 
@@ -135,6 +136,7 @@ def api_start():
             "_model_size": model_size,
             "_skip_analysis": skip_analysis,
             "_recipe_id": recipe_id,
+            "_denoise": denoise,
         })
 
     return jsonify({"session_id": session_id})
@@ -154,6 +156,7 @@ def api_stop():
         model_size = _state["_model_size"]
         skip_analysis = _state["_skip_analysis"]
         recipe_id = _state.get("_recipe_id")
+        denoise = _state.get("_denoise", True)
         session_id = _state["session_id"]
 
         _state["status"] = "processing"
@@ -172,7 +175,7 @@ def api_stop():
 
     threading.Thread(
         target=_process_recording,
-        args=(audio_path, session_id, language, model_size, skip_analysis, recipe_id),
+        args=(audio_path, session_id, language, model_size, skip_analysis, recipe_id, denoise),
         daemon=True,
     ).start()
 
@@ -441,14 +444,28 @@ def api_live_stream():
 # Background processing
 # ---------------------------------------------------------------------------
 
-def _process_recording(audio_path, session_id, language, model_size, skip_analysis, recipe_id=None):
+def _process_recording(audio_path, session_id, language, model_size, skip_analysis, recipe_id=None, denoise=True):
     try:
         from listener.transcriber import transcribe
+
+        # F7: Noise preprocessing
+        transcribe_path = audio_path  # default: use original audio
+        if denoise:
+            try:
+                with _lock:
+                    _state["step"] = "denoising"
+                from listener.preprocessor import preprocess_audio
+                cleaned_path = audio_path.replace(".wav", "_cleaned.wav")
+                transcribe_path = preprocess_audio(audio_path, cleaned_path)
+                logger.info("Audio denoised for session %s", session_id)
+            except Exception as e:
+                logger.warning("Noise reduction failed (continuing with original): %s", e)
+                transcribe_path = audio_path
 
         with _lock:
             _state["step"] = "transcribing"
 
-        result = transcribe(audio_path, model_size=model_size, language=language)
+        result = transcribe(transcribe_path, model_size=model_size, language=language)
 
         if not result.segments:
             with _lock:
