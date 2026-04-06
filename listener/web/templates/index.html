@@ -13,16 +13,43 @@ body{
   color:#0f172a;
   min-height:100vh;
   display:flex;
-  justify-content:center;
-  padding:40px 16px 80px;
+  padding:0;
 }
 
-.container{width:100%;max-width:580px}
+/* ---- Layout: Sidebar + Main ---- */
+.sidebar{
+  width:280px;min-width:280px;max-width:280px;
+  background:#fff;border-right:1px solid #e2e8f0;
+  display:flex;flex-direction:column;
+  height:100vh;position:sticky;top:0;
+  overflow:hidden;
+}
+.sidebar-header{
+  padding:20px 20px 16px;border-bottom:1px solid #e2e8f0;
+  flex-shrink:0;
+}
+.sidebar-header h1{font-size:18px;font-weight:700;letter-spacing:-.3px;color:#1e293b}
+.sidebar-header p{color:#94a3b8;font-size:11px;margin-top:2px}
+.sidebar-search{padding:12px 16px 8px;flex-shrink:0}
+.sidebar-sessions{flex:1;overflow-y:auto;padding:4px 12px 16px}
+.sidebar-sessions::-webkit-scrollbar{width:5px}
+.sidebar-sessions::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
 
-/* ---- Header ---- */
-header{text-align:center;margin-bottom:28px}
-header h1{font-size:24px;font-weight:700;letter-spacing:-.5px;color:#1e293b}
-header p{color:#64748b;font-size:13px;margin-top:3px}
+.main{flex:1;min-width:0;padding:32px 24px 80px;max-width:700px;margin:0 auto}
+
+/* ---- Header (hidden, replaced by sidebar header) ---- */
+header{display:none}
+
+@media(max-width:768px){
+  body{flex-direction:column}
+  .sidebar{
+    width:100%;min-width:100%;max-width:100%;
+    height:auto;position:relative;
+    border-right:none;border-bottom:1px solid #e2e8f0;
+    max-height:50vh;
+  }
+  .main{padding:20px 16px 80px}
+}
 
 /* ---- Cards ---- */
 .card{
@@ -95,6 +122,13 @@ select:disabled{opacity:.45;cursor:not-allowed}
 /* ---- Viewer ---- */
 .viewer{display:none;animation:fadeUp .3s ease}
 .viewer.open{display:block}
+.viewer-close{
+  background:none;border:1px solid #e2e8f0;border-radius:8px;
+  width:32px;height:32px;font-size:20px;line-height:1;
+  color:#94a3b8;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.viewer-close:hover{background:#fef2f2;border-color:#fecaca;color:#ef4444}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
@@ -114,7 +148,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .tab:disabled{opacity:.35;cursor:default}
 
 .content{
-  max-height:420px;overflow-y:auto;
+  max-height:60vh;overflow-y:auto;
   padding:20px;background:#f8fafc;
   border-radius:0 0 10px 10px;
   line-height:1.75;font-size:14px;color:#334155;
@@ -238,39 +272,39 @@ select:disabled{opacity:.45;cursor:not-allowed}
 /* ---- Sessions list ---- */
 .slist{list-style:none}
 .sitem{
-  padding:12px 14px;margin-bottom:6px;
-  border-radius:10px;cursor:pointer;
-  transition:background .15s;
+  padding:10px 12px;margin-bottom:4px;
+  border-radius:8px;cursor:pointer;
+  transition:all .15s;
   display:flex;justify-content:space-between;align-items:center;
 }
 .sitem:hover{background:#f1f5f9}
-.sitem.active{background:#eef2ff}
-.s-left{}
-.s-title{font-size:14px;font-weight:600;color:#1e293b}
-.s-date{font-size:12px;color:#94a3b8;margin-top:2px}
-.s-badges{display:flex;gap:4px}
+.sitem.active{background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
+.s-left{min-width:0;flex:1}
+.s-title{font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-date{font-size:11px;color:#94a3b8;margin-top:1px}
+.s-badges{display:flex;gap:3px;flex-shrink:0;margin-left:6px}
 .badge{
-  font-size:10px;font-weight:600;padding:2px 7px;
-  border-radius:5px;text-transform:uppercase;letter-spacing:.3px;
+  font-size:9px;font-weight:600;padding:1px 5px;
+  border-radius:4px;text-transform:uppercase;letter-spacing:.3px;
 }
 .badge.tr{background:#dbeafe;color:#3b82f6}
 .badge.an{background:#dcfce7;color:#16a34a}
 .badge.au{background:#fef3c7;color:#d97706}
 
-.empty{text-align:center;color:#94a3b8;font-size:13px;padding:16px 0}
+.empty{text-align:center;color:#94a3b8;font-size:12px;padding:16px 0}
 
 /* ---- Search (F4) ---- */
 .search-bar{
-  display:flex;gap:8px;margin-bottom:12px;
+  display:flex;gap:6px;margin-bottom:8px;
 }
 .search-bar input{
-  flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;
-  font-size:13px;outline:none;transition:border .2s;
+  flex:1;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:12px;outline:none;transition:border .2s;min-width:0;
 }
 .search-bar input:focus{border-color:#6366f1}
 .search-bar button{
-  padding:8px 14px;border:none;border-radius:8px;
-  background:#6366f1;color:#fff;font-size:13px;font-weight:600;
+  padding:7px 10px;border:none;border-radius:8px;
+  background:#6366f1;color:#fff;font-size:12px;font-weight:600;
   cursor:pointer;white-space:nowrap;transition:background .2s;
 }
 .search-bar button:hover{background:#4f46e5}
@@ -382,6 +416,40 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .wh-status.ok{color:#16a34a}
 .wh-status.fail{color:#ef4444}
 .wh-empty{text-align:center;color:#94a3b8;font-size:13px;padding:12px 0}
+
+/* ---- Import Meeting ---- */
+.import-area{
+  border:2px dashed #cbd5e1;border-radius:12px;
+  padding:28px 20px;text-align:center;
+  cursor:pointer;transition:all .25s;
+  position:relative;
+}
+.import-area:hover,.import-area.dragover{
+  border-color:#6366f1;background:#eef2ff;
+}
+.import-area.importing{
+  border-color:#94a3b8;background:#f8fafc;cursor:default;
+  pointer-events:none;opacity:.6;
+}
+.import-icon{font-size:28px;margin-bottom:6px;color:#94a3b8}
+.import-text{font-size:13px;color:#64748b}
+.import-text strong{color:#6366f1}
+.import-hint{font-size:11px;color:#94a3b8;margin-top:4px}
+.import-file-input{
+  position:absolute;inset:0;opacity:0;cursor:pointer;
+}
+.import-progress{
+  display:none;font-size:13px;color:#6366f1;
+  font-weight:600;margin-top:8px;
+}
+.import-progress.show{display:block}
+.import-or{
+  display:flex;align-items:center;gap:12px;
+  margin:16px 0 4px;color:#94a3b8;font-size:12px;
+}
+.import-or::before,.import-or::after{
+  content:'';flex:1;border-top:1px solid #e2e8f0;
+}
 
 /* ---- Live Transcription (F9) ---- */
 .live-panel{
@@ -520,12 +588,29 @@ select:disabled{opacity:.45;cursor:not-allowed}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
-<div class="container">
-  <header>
+<!-- Sidebar: Sessions -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
     <h1>Listener</h1>
     <p>Meeting Recorder &amp; Analyzer</p>
-  </header>
+  </div>
+  <div class="sidebar-search">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search meetings..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button onclick="doSearch()">Go</button>
+      <button class="clear-btn" id="search-clear" onclick="clearSearch()" style="display:none">X</button>
+    </div>
+  </div>
+  <div class="sidebar-sessions">
+    <div class="search-results" id="search-results" style="display:none"></div>
+    <ul class="slist" id="slist">
+      <li class="empty">No sessions yet</li>
+    </ul>
+  </div>
+</aside>
 
+<!-- Main content -->
+<div class="main">
   <!-- Settings -->
   <div class="card" id="settings-card">
     <div class="card-label">Settings</div>
@@ -574,6 +659,18 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <div id="stxt" class="stxt">Ready</div>
   </div>
 
+  <!-- Import Meeting -->
+  <div class="card" id="import-card">
+    <div class="card-label">Import Meeting</div>
+    <div class="import-area" id="import-area">
+      <input type="file" id="import-file" class="import-file-input" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.webm" onchange="handleImport(this)">
+      <div class="import-icon">&#x1F4C1;</div>
+      <div class="import-text">Drop an audio file here or <strong>click to browse</strong></div>
+      <div class="import-hint">WAV, MP3, M4A, FLAC, OGG, WebM</div>
+      <div class="import-progress" id="import-progress">Processing...</div>
+    </div>
+  </div>
+
   <!-- Live Transcription Panel (F9) -->
   <div class="live-panel" id="live-panel">
     <div class="live-header">
@@ -589,27 +686,18 @@ select:disabled{opacity:.45;cursor:not-allowed}
   <!-- Viewer -->
   <div class="card viewer" id="viewer">
     <div class="v-head">
-      <div class="v-title" id="v-title"></div>
-      <div class="v-meta" id="v-meta"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="v-title" id="v-title"></div>
+          <div class="v-meta" id="v-meta"></div>
+        </div>
+        <button class="viewer-close" onclick="closeViewer()" title="Close viewer">&times;</button>
+      </div>
     </div>
     <div class="tabs" id="tabs"></div>
     <div class="content" id="content"></div>
     <div class="dl-row" id="dl-row"></div>
     <div class="export-row" id="export-row"></div>
-  </div>
-
-  <!-- Sessions -->
-  <div class="card">
-    <div class="card-label">Past Sessions</div>
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search all meetings..." onkeydown="if(event.key==='Enter')doSearch()">
-      <button onclick="doSearch()">Search</button>
-      <button class="clear-btn" id="search-clear" onclick="clearSearch()" style="display:none">Clear</button>
-    </div>
-    <div class="search-results" id="search-results" style="display:none"></div>
-    <ul class="slist" id="slist">
-      <li class="empty">No sessions yet</li>
-    </ul>
   </div>
 
   <!-- Webhooks (F10) -->
@@ -1763,6 +1851,81 @@ async function testWebhook(id){
     setTimeout(()=>{st.textContent=''},5000);
   }catch(e){st.textContent='Test error';st.className='wh-status fail'}
 }
+
+// ===========================================================================
+// Import Meeting
+// ===========================================================================
+(function(){
+  const area=document.getElementById('import-area');
+  if(!area)return;
+  ['dragenter','dragover'].forEach(e=>area.addEventListener(e,ev=>{
+    ev.preventDefault();area.classList.add('dragover');
+  }));
+  ['dragleave','drop'].forEach(e=>area.addEventListener(e,ev=>{
+    ev.preventDefault();area.classList.remove('dragover');
+  }));
+  area.addEventListener('drop',ev=>{
+    const files=ev.dataTransfer.files;
+    if(files.length)doImportFile(files[0]);
+  });
+})();
+
+async function handleImport(input){
+  if(input.files.length)await doImportFile(input.files[0]);
+  input.value='';// reset so same file can be re-selected
+}
+
+async function doImportFile(file){
+  const area=Q('#import-area');
+  const prog=Q('#import-progress');
+
+  // Validate
+  if(ui==='recording'||ui==='processing'){
+    alert('Please wait for the current operation to finish.');return;
+  }
+
+  area.classList.add('importing');
+  prog.textContent=`Uploading ${file.name}...`;
+  prog.classList.add('show');
+
+  const form=new FormData();
+  form.append('audio',file);
+  form.append('language',val('language')||'');
+  form.append('skip_analysis',Q('#skip-analysis').checked?'true':'false');
+  form.append('recipe_id',val('recipe')||'');
+  form.append('denoise',Q('#denoise').checked?'true':'false');
+
+  try{
+    const r=await f('/api/import',{method:'POST',body:form});
+    if(!r.ok){
+      const d=await r.json();
+      alert(d.error||'Import failed');
+      area.classList.remove('importing');
+      prog.classList.remove('show');
+      return;
+    }
+    prog.textContent='Processing...';
+    setUI('processing');
+    closeViewer();
+    // polling will pick up the processing state and show result when done
+  }catch(e){
+    alert('Upload failed: '+e.message);
+    area.classList.remove('importing');
+    prog.classList.remove('show');
+  }
+}
+
+// Reset import card when processing finishes
+const _origSetUI=setUI;
+setUI=function(state){
+  _origSetUI(state);
+  if(state==='done'||state==='idle'||state==='error'){
+    const area=Q('#import-area');
+    if(area){area.classList.remove('importing');}
+    const prog=Q('#import-progress');
+    if(prog){prog.classList.remove('show');}
+  }
+};
 </script>
 </body>
 </html>

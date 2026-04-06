@@ -14,6 +14,7 @@ from pathlib import Path
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response, stream_with_context
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB max upload
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path("./transcripts")
@@ -180,6 +181,52 @@ def api_stop():
     ).start()
 
     return jsonify({"ok": True})
+
+
+@app.route("/api/import", methods=["POST"])
+def api_import():
+    """Import an existing audio file for transcription and analysis."""
+    with _lock:
+        if _state["status"] in ("recording", "processing"):
+            return jsonify({"error": f"Cannot import while {_state['status']}"}), 400
+
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+
+    audio_file = request.files["audio"]
+    if not audio_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    skip_analysis = request.form.get("skip_analysis") == "true"
+    recipe_id = request.form.get("recipe_id") or None
+    denoise = request.form.get("denoise", "true") == "true"
+    language = request.form.get("language") or None
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    session_id = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    audio_path = str(OUTPUT_DIR / f"{session_id}.wav")
+
+    # Save uploaded file
+    audio_file.save(audio_path)
+
+    with _lock:
+        _state.update({
+            "status": "processing",
+            "session_id": session_id,
+            "start_time": None,
+            "step": "transcribing",
+            "error": None,
+            "files": {},
+            "title": None,
+        })
+
+    threading.Thread(
+        target=_process_recording,
+        args=(audio_path, session_id, language, "large-v3", skip_analysis, recipe_id, denoise),
+        daemon=True,
+    ).start()
+
+    return jsonify({"session_id": session_id})
 
 
 @app.route("/api/sessions")
