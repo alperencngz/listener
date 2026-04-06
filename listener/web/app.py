@@ -6,6 +6,8 @@ and analyzing meetings. Runs on port 8642.
 
 import json
 import logging
+import shutil
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -206,8 +208,24 @@ def api_import():
     session_id = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     audio_path = str(OUTPUT_DIR / f"{session_id}.wav")
 
-    # Save uploaded file
-    audio_file.save(audio_path)
+    # Save uploaded file with its original extension
+    original_ext = Path(audio_file.filename).suffix.lower() or ".wav"
+    temp_path = str(OUTPUT_DIR / f"{session_id}_original{original_ext}")
+    audio_file.save(temp_path)
+
+    # Convert to WAV if not already WAV
+    if original_ext in (".wav",):
+        shutil.move(temp_path, audio_path)
+    else:
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", temp_path, "-ar", "16000", "-ac", "1", audio_path],
+                capture_output=True, check=True,
+            )
+            Path(temp_path).unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("ffmpeg conversion failed, using original file: %s", e)
+            shutil.move(temp_path, audio_path)
 
     with _lock:
         _state.update({
@@ -232,12 +250,18 @@ def api_import():
 @app.route("/api/sessions")
 def api_sessions():
     if not OUTPUT_DIR.exists():
-        return jsonify([])
+        return jsonify({"sessions": [], "total": 0, "has_more": False})
+
+    offset = request.args.get("offset", 0, type=int)
+    limit = request.args.get("limit", 30, type=int)
 
     session_map: dict[str, dict] = {}
 
     for f in sorted(OUTPUT_DIR.iterdir(), reverse=True):
         if f.suffix not in (".md", ".wav", ".json"):
+            continue
+
+        if "_cleaned" in f.stem:
             continue
 
         name = f.stem
@@ -274,7 +298,9 @@ def api_sessions():
             session_map[name]["files"]["analysis"] = f.name
 
     sorted_sessions = sorted(session_map.values(), key=lambda s: s["id"], reverse=True)
-    return jsonify(sorted_sessions[:30])
+    total = len(sorted_sessions)
+    page = sorted_sessions[offset:offset + limit]
+    return jsonify({"sessions": page, "total": total, "has_more": offset + limit < total})
 
 
 @app.route("/api/view/<filename>")
@@ -420,6 +446,149 @@ def api_webhooks_test(webhook_id):
     if result is None:
         return jsonify({"error": "Webhook not found"}), 404
     return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
+# Session Management (delete, reanalyze, rename)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/sessions/<session_id>", methods=["DELETE"])
+def api_delete_session(session_id):
+    """Delete all files for a session."""
+    deleted = []
+    for fpath in OUTPUT_DIR.glob(f"{session_id}*"):
+        if fpath.is_file():
+            fpath.unlink()
+            deleted.append(fpath.name)
+    # Also remove from search index
+    try:
+        from listener.db import get_db
+        conn = get_db()
+        conn.execute("DELETE FROM meetings WHERE session_id = ?", (session_id,))
+        conn.commit()
+    except Exception:
+        pass
+    # Clear chat session if any
+    _chat_sessions.pop(session_id, None)
+    return jsonify({"deleted": deleted})
+
+
+@app.route("/api/reanalyze/<session_id>", methods=["POST"])
+def api_reanalyze(session_id):
+    """Re-run analysis on an existing session with a new recipe."""
+    with _lock:
+        if _state["status"] in ("recording", "processing"):
+            return jsonify({"error": "Cannot re-analyze while busy"}), 400
+
+    transcript_path = OUTPUT_DIR / f"{session_id}_transcript.md"
+    if not transcript_path.exists():
+        return jsonify({"error": "Transcript not found"}), 404
+
+    data = request.json or {}
+    recipe_id = data.get("recipe_id") or None
+
+    with _lock:
+        _state.update({
+            "status": "processing",
+            "session_id": session_id,
+            "start_time": None,
+            "step": "analyzing",
+            "error": None,
+            "files": {},
+            "title": None,
+        })
+
+    def _do_reanalyze():
+        try:
+            from listener.analyzer import analyze_transcript_sync
+            transcript_text = transcript_path.read_text()
+            analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id)
+
+            # Read existing meta
+            meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
+            meta = {}
+            if meta_path.exists():
+                meta = json.loads(meta_path.read_text())
+
+            dt = datetime.strptime(session_id, "%Y-%m-%d_%H-%M-%S")
+            date_display = dt.strftime("%Y-%m-%d %H:%M")
+            duration_str = _fmt_duration(meta.get("duration", 0))
+            language = meta.get("language", "")
+
+            analysis_md = (
+                f"# Meeting Analysis -- {date_display}\n\n"
+                f"**Duration:** {duration_str}  \n"
+                f"**Language:** {language}\n\n---\n\n"
+                f"{analysis}\n"
+            )
+            analysis_filename = f"{session_id}_analysis.md"
+            (OUTPUT_DIR / analysis_filename).write_text(analysis_md)
+
+            # Update meta with new recipe
+            meta["recipe_id"] = recipe_id
+            (OUTPUT_DIR / f"{session_id}_meta.json").write_text(
+                json.dumps(meta, ensure_ascii=False)
+            )
+
+            # Re-index in search DB
+            try:
+                from listener.db import insert_meeting
+                parts = session_id.split("_")
+                iso_date = parts[0]
+                if len(parts) > 1:
+                    iso_date = f"{parts[0]}T{parts[1].replace('-', ':')}"
+                insert_meeting(
+                    session_id=session_id, title=meta.get("title", ""),
+                    date=iso_date, duration=meta.get("duration", 0),
+                    language=language,
+                    lang_confidence=meta.get("language_probability", 0),
+                    transcript=transcript_text, analysis=analysis_md,
+                    audio_path=str(OUTPUT_DIR / f"{session_id}.wav"),
+                )
+            except Exception:
+                pass
+
+            files = {"transcript": f"{session_id}_transcript.md", "analysis": analysis_filename}
+            if (OUTPUT_DIR / f"{session_id}.wav").exists():
+                files["audio"] = f"{session_id}.wav"
+
+            with _lock:
+                _state["status"] = "done"
+                _state["step"] = None
+                _state["files"] = files
+                _state["title"] = meta.get("title", session_id)
+        except Exception as e:
+            with _lock:
+                _state["status"] = "error"
+                _state["error"] = str(e)
+                _state["step"] = None
+
+    threading.Thread(target=_do_reanalyze, daemon=True).start()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sessions/<session_id>/rename", methods=["POST"])
+def api_rename_session(session_id):
+    """Rename a session's title."""
+    data = request.json or {}
+    new_title = data.get("title", "").strip()
+    if not new_title:
+        return jsonify({"error": "Title cannot be empty"}), 400
+    meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
+    if not meta_path.exists():
+        return jsonify({"error": "Session not found"}), 404
+    meta = json.loads(meta_path.read_text())
+    meta["title"] = new_title
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False))
+    # Update search index
+    try:
+        from listener.db import get_db
+        conn = get_db()
+        conn.execute("UPDATE meetings SET title = ? WHERE session_id = ?", (new_title, session_id))
+        conn.commit()
+    except Exception:
+        pass
+    return jsonify({"ok": True, "title": new_title})
 
 
 # ---------------------------------------------------------------------------
