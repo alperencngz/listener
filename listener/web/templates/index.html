@@ -30,7 +30,30 @@ body{
 }
 .sidebar-header h1{font-size:18px;font-weight:700;letter-spacing:-.3px;color:#1e293b}
 .sidebar-header p{color:#94a3b8;font-size:11px;margin-top:2px}
-.sidebar-search{padding:12px 16px 8px;flex-shrink:0}
+.sidebar-search{padding:12px 16px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+
+.new-rec-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:10px 14px;
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:#fff;border:none;border-radius:10px;
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .2s;
+  box-shadow:0 1px 3px rgba(16,185,129,.25);
+}
+.new-rec-btn:hover{
+  background:linear-gradient(135deg,#059669,#047857);
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(16,185,129,.35);
+}
+.new-rec-btn.active{
+  background:linear-gradient(135deg,#6366f1,#4f46e5);
+  box-shadow:0 1px 3px rgba(99,102,241,.25);
+}
+.new-rec-plus{
+  font-size:18px;font-weight:700;line-height:1;
+  display:inline-flex;align-items:center;
+}
 .sidebar-sessions{flex:1;overflow-y:auto;padding:4px 12px 16px}
 .sidebar-sessions::-webkit-scrollbar{width:5px}
 .sidebar-sessions::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
@@ -99,6 +122,8 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .rec-btn.recording{background:#ef4444;animation:pulse 2s ease-in-out infinite}
 .rec-btn.recording:hover{background:#dc2626}
 .rec-btn.processing{background:#94a3b8;cursor:default}
+.rec-btn.stopped{background:#6366f1}
+.rec-btn.stopped:hover{background:#4f46e5;transform:scale(1.04)}
 .rec-btn.done{background:#22c55e}
 .rec-btn.done:hover{background:#16a34a;transform:scale(1.04)}
 .rec-btn.error{background:#f97316}
@@ -133,7 +158,13 @@ select:disabled{opacity:.45;cursor:not-allowed}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 .v-head{margin-bottom:16px}
-.v-title{font-size:18px;font-weight:700;color:#1e293b;line-height:1.3}
+.v-title{font-size:18px;font-weight:700;color:#1e293b;line-height:1.3;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rename-btn{
+  background:none;border:1px solid #e2e8f0;border-radius:6px;
+  padding:3px 8px;font-size:12px;color:#94a3b8;cursor:pointer;
+  transition:all .15s;line-height:1;
+}
+.rename-btn:hover{background:#eef2ff;border-color:#c7d2fe;color:#6366f1}
 .v-meta{font-size:12px;color:#64748b;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
 .v-meta span{display:flex;align-items:center;gap:3px}
 
@@ -195,6 +226,90 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .content .task.done{color:#64748b;text-decoration:line-through}
 
 .content audio{width:100%;margin:12px 0}
+
+/* ---- Waveform Player ---- */
+.waveform-player{position:relative;width:100%;margin:8px 0}
+.waveform-player audio{width:100%;margin:4px 0 0}
+.waveform-wrap{
+  position:relative;width:100%;height:80px;
+  background:#1e293b;border-radius:10px;cursor:pointer;
+  overflow:hidden;
+}
+.waveform-wrap canvas{width:100%;height:100%;display:block}
+.waveform-progress{
+  position:absolute;top:0;left:0;width:0;height:100%;
+  background:rgba(99,102,241,.25);pointer-events:none;
+  transition:width .1s linear;
+}
+.waveform-time{
+  position:absolute;bottom:4px;right:8px;
+  font-size:11px;font-weight:600;color:rgba(255,255,255,.7);
+  font-family:'SF Mono',SFMono-Regular,Menlo,monospace;
+  pointer-events:none;
+}
+.waveform-controls{
+  display:flex;align-items:center;gap:10px;margin-top:6px;
+}
+.wf-play-btn{
+  width:32px;height:32px;border:none;border-radius:50%;
+  background:#6366f1;color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;flex-shrink:0;
+}
+.wf-play-btn:hover{background:#4f46e5}
+.wf-play-btn svg{width:14px;height:14px;fill:#fff}
+.wf-time-display{
+  font-size:12px;color:#64748b;
+  font-family:'SF Mono',SFMono-Regular,Menlo,monospace;
+  min-width:90px;
+}
+
+/* ---- Processing Overlay ---- */
+.processing-overlay{
+  display:none;
+  flex-direction:column;align-items:center;
+  padding:40px 24px;background:#f8fafc;
+  border-radius:0 0 10px 10px;min-height:250px;
+}
+.processing-overlay.active{display:flex}
+.proc-step{
+  font-size:16px;font-weight:600;color:#1e293b;
+  margin-bottom:24px;
+}
+.proc-bar-wrap{
+  width:100%;max-width:400px;height:8px;
+  background:#e2e8f0;border-radius:4px;
+  overflow:hidden;margin-bottom:24px;
+}
+.proc-bar{
+  height:100%;background:linear-gradient(90deg,#6366f1,#818cf8);
+  border-radius:4px;transition:width .6s ease;width:0;
+}
+.proc-pct{
+  font-size:12px;font-weight:600;color:#6366f1;
+  margin-bottom:8px;
+  font-family:'SF Mono',SFMono-Regular,Menlo,monospace;
+}
+.proc-steps{
+  display:flex;flex-direction:column;gap:6px;
+  width:100%;max-width:400px;
+}
+.proc-steps .ps-item{
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:#cbd5e1;transition:all .3s;
+}
+.proc-steps .ps-item.done{color:#16a34a}
+.proc-steps .ps-item.active{color:#6366f1;font-weight:600}
+.ps-icon{
+  width:18px;height:18px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:13px;
+}
+.ps-item.done .ps-icon::after{content:'\2713'}
+.ps-item.active .ps-icon::after{content:'';display:block;width:12px;height:12px;
+  border:2px solid #6366f1;border-top-color:transparent;
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+.ps-item.pending .ps-icon::after{content:'\25CB';color:#cbd5e1}
 
 /* ---- Speaker colors ---- */
 .spk{font-weight:700;padding:1px 6px;border-radius:4px;font-size:12px;margin-right:2px}
@@ -291,13 +406,14 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .badge.an{background:#dcfce7;color:#16a34a}
 .badge.au{background:#fef3c7;color:#d97706}
 
-.sitem .s-del{
+.sitem .s-del,.sitem .s-rename{
   display:none;background:none;border:none;cursor:pointer;
-  color:#94a3b8;font-size:14px;padding:2px 5px;border-radius:4px;
-  line-height:1;transition:all .15s;flex-shrink:0;margin-left:4px;
+  color:#94a3b8;font-size:12px;padding:2px 5px;border-radius:4px;
+  line-height:1;transition:all .15s;flex-shrink:0;margin-left:2px;
 }
-.sitem:hover .s-del{display:inline-flex}
+.sitem:hover .s-del,.sitem:hover .s-rename{display:inline-flex}
 .sitem .s-del:hover{color:#ef4444;background:#fef2f2}
+.sitem .s-rename:hover{color:#6366f1;background:#eef2ff}
 
 .empty{text-align:center;color:#94a3b8;font-size:12px;padding:16px 0}
 
@@ -607,6 +723,9 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <p>Meeting Recorder &amp; Analyzer</p>
   </div>
   <div class="sidebar-search">
+    <button class="new-rec-btn" id="new-rec-btn" onclick="showNewRecordingView()">
+      <span class="new-rec-plus">+</span> New Recording
+    </button>
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search meetings..." onkeydown="if(event.key==='Enter')doSearch()">
       <button onclick="doSearch()">Go</button>
@@ -623,6 +742,8 @@ select:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- Main content -->
 <div class="main">
+  <!-- New Recording view: settings + recorder + import (hidden when viewing a session) -->
+  <div id="new-recording-view">
   <!-- Settings -->
   <div class="card" id="settings-card">
     <div class="card-label">Settings</div>
@@ -655,7 +776,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
         <label for="skip-analysis">Skip Claude analysis (transcript only)</label>
       </div>
       <div class="cb-row">
-        <input type="checkbox" id="live-transcription" checked>
+        <input type="checkbox" id="live-transcription">
         <label for="live-transcription">Live transcription (show text while recording)</label>
       </div>
     </div>
@@ -694,6 +815,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     </div>
     <div class="live-status" id="live-status">Connecting...</div>
   </div>
+  </div><!-- /#new-recording-view -->
 
   <!-- Viewer -->
   <div class="card viewer" id="viewer">
@@ -703,16 +825,23 @@ select:disabled{opacity:.45;cursor:not-allowed}
           <div class="v-title" id="v-title"></div>
           <div class="v-meta" id="v-meta"></div>
         </div>
-        <button class="viewer-close" onclick="closeViewer()" title="Close viewer">&times;</button>
+        <button class="viewer-close" onclick="showNewRecordingView()" title="Close viewer">&times;</button>
       </div>
     </div>
     <div class="tabs" id="tabs"></div>
     <div class="content" id="content"></div>
+    <div class="processing-overlay" id="processing-overlay">
+      <div class="proc-step" id="proc-step">Processing...</div>
+      <div class="proc-pct" id="proc-pct">0%</div>
+      <div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div>
+      <div class="proc-steps" id="proc-steps"></div>
+    </div>
     <div class="dl-row" id="dl-row"></div>
     <div class="export-row" id="export-row"></div>
   </div>
 
-  <!-- Webhooks (F10) -->
+  <!-- Webhooks (F10) — part of recording view, hidden when viewing a session -->
+  <div id="webhooks-view-wrap">
   <div class="card" id="webhooks-card">
     <div class="card-label">Webhooks</div>
     <ul class="webhook-list" id="wh-list">
@@ -729,6 +858,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     </div>
     <div class="wh-status" id="wh-status"></div>
   </div>
+  </div><!-- /#webhooks-view-wrap -->
 </div>
 
 <script>
@@ -750,6 +880,8 @@ const EXPORT_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" f
   await loadRecipes();
   await loadSessions();
   loadWebhooks();
+  // New Recording view is shown by default
+  Q('#new-rec-btn')?.classList.add('active');
   setInterval(poll, 1200);
 })();
 
@@ -814,7 +946,7 @@ async function loadRecipes(){
 // Record
 // ===========================================================================
 async function toggle(){
-  if(ui==='idle'||ui==='done'||ui==='error') await doStart();
+  if(ui==='idle'||ui==='done'||ui==='error'||ui==='stopped') await doStart();
   else if(ui==='recording') await doStop();
 }
 
@@ -837,11 +969,75 @@ async function doStart(){
   if(Q('#live-transcription').checked) startLiveStream();
 }
 
+let _stoppedSessionId = null;
+
 async function doStop(){
-  stopLiveStream();
-  await f('/api/stop',{method:'POST'});
-  clearInterval(tRef);tRef=null;
+  // Always clean up local state first, regardless of server response.
+  // This prevents the UI from getting stuck if /api/stop fails.
+  clearInterval(tRef); tRef=null;
+  recStart=null;
+  Q('#timer').textContent='00:00';
+  setUI('idle');
+  Q('#stxt').textContent='Saved. Click the session in the sidebar to process it.';
+
+  let stoppedId=null;
+  try{
+    stopLiveStream();
+    const r=await f('/api/stop',{method:'POST'});
+    if(r.ok){
+      const d=await r.json();
+      _stoppedSessionId=d.session_id||null;
+      stoppedId=d.session_id||null;
+    }else{
+      console.warn('Stop returned',r.status,'— audio file should still be saved');
+    }
+  }catch(e){
+    console.warn('Stop request failed:',e,'— audio file should still be saved');
+  }
+  loadSessions();
+
+  // Prompt user to name the recording
+  if(stoppedId){
+    setTimeout(()=>{
+      const name=prompt('Name this recording (leave empty to skip):','');
+      if(name&&name.trim()){
+        f(`/api/sessions/${stoppedId}/rename`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({title:name.trim()})
+        }).then(()=>loadSessions()).catch(e=>console.warn('Name failed:',e));
+      }
+    },300);
+  }
+}
+
+async function doProcess(){
+  if(!_stoppedSessionId)return;
+  const body={
+    language:val('language')||null,
+    model_size:'large-v3',
+    skip_analysis:Q('#skip-analysis').checked,
+    recipe_id:val('recipe')||null,
+    denoise:Q('#denoise').checked,
+  };
+  const r=await f(`/api/process/${_stoppedSessionId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){const d=await r.json();alert(d.error);return}
+  _stoppedSessionId=null;
   setUI('processing');
+}
+
+async function processSession(sessionId){
+  if(ui==='recording'||ui==='processing'){alert('Please wait for the current operation to finish.');return}
+  const body={
+    language:val('language')||null,
+    model_size:'large-v3',
+    skip_analysis:Q('#skip-analysis').checked,
+    recipe_id:val('recipe')||null,
+    denoise:Q('#denoise').checked,
+  };
+  const r=await f(`/api/process/${sessionId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){const d=await r.json();alert(d.error||'Process failed');return}
+  setUI('processing');
+  updateProcessingOverlay('denoising');
 }
 
 // ===========================================================================
@@ -865,6 +1061,10 @@ function setUI(state){
     case 'recording':
       ic.innerHTML='<div class="is"></div>';lbl.textContent='Stop';
       st.textContent='Recording...';st.className='stxt';break;
+    case 'stopped':
+      ic.innerHTML='<div class="ic" style="background:#6366f1;border-radius:3px;width:0;height:0;border-style:solid;border-width:8px 0 8px 14px;border-color:transparent transparent transparent #fff"></div>';
+      lbl.textContent='Process';
+      st.textContent='Recording saved. Click Process to transcribe & analyze.';st.className='stxt';break;
     case 'processing':
       ic.innerHTML='<div class="ip"></div>';lbl.textContent='Wait';
       st.textContent='Transcribing...';st.className='stxt';break;
@@ -909,13 +1109,24 @@ async function poll(){
         closeLiveStream();
         // Build session object from state and open viewer
         const sess={id:d.session_id,title:d.title||'',files:d.files,duration:0,language:''};
+        hideNewRecordingView();
         openViewer(sess);
         loadSessions();
       }else if(d.status==='error'){
         setUI('error');
         Q('#stxt').textContent=d.error||'Something went wrong';
+      }else if(d.status==='stopped'&&ui!=='stopped'){
+        setUI('stopped');
+        _stoppedSessionId=d.session_id;
       }else if(d.status==='processing'&&ui!=='processing'){
         setUI('processing');
+      }else if(d.status==='recording'&&ui!=='recording'){
+        // Recover recording UI state if it got out of sync
+        setUI('recording');
+        if(d.elapsed){
+          recStart=Date.now()-(d.elapsed*1000);
+          if(!tRef) tRef=setInterval(tick,100);
+        }
       }
     }
     if(d.status==='processing'&&d.step){
@@ -926,6 +1137,15 @@ async function poll(){
       if(importProg&&importProg.classList.contains('show')){
         importProg.textContent=map[d.step]||'Processing...';
       }
+      // Only show processing overlay if the viewer is showing the session being processed
+      if(viewerSession && viewerSession.id === d.session_id){
+        updateProcessingOverlay(d.step);
+      }else{
+        hideProcessingOverlay();
+      }
+    }
+    if(d.status==='done'||d.status==='idle'||d.status==='error'||d.status==='stopped'){
+      hideProcessingOverlay();
     }
     // Better import error feedback
     if(d.status==='error'){
@@ -939,16 +1159,79 @@ async function poll(){
 }
 
 // ===========================================================================
+// Processing Overlay
+// ===========================================================================
+const _procSteps = [
+  {key:'denoising', label:'Reducing noise'},
+  {key:'transcribing', label:'Transcribing audio'},
+  {key:'diarizing', label:'Identifying speakers'},
+  {key:'titling', label:'Generating title'},
+  {key:'analyzing', label:'Analyzing with Claude'},
+];
+
+function updateProcessingOverlay(currentStep){
+  const overlay=Q('#processing-overlay');
+  if(!overlay)return;
+  overlay.classList.add('active');
+  Q('#content').style.display='none';
+
+  const stepLabel=Q('#proc-step');
+  const map={denoising:'Reducing noise...',transcribing:'Transcribing audio...',diarizing:'Identifying speakers...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
+  stepLabel.textContent=map[currentStep]||'Processing...';
+
+  // Calculate progress percentage
+  const idx=_procSteps.findIndex(s=>s.key===currentStep);
+  const total=_procSteps.length;
+  const pct=idx>=0?Math.round(((idx)/total)*100+Math.round(100/total/2)):0;
+  Q('#proc-bar').style.width=Math.min(pct,95)+'%';
+  Q('#proc-pct').textContent=Math.min(pct,95)+'%';
+
+  let found=false;
+  let html='';
+  _procSteps.forEach(s=>{
+    let cls='pending';
+    if(s.key===currentStep){cls='active';found=true}
+    else if(!found){cls='done'}
+    html+=`<div class="ps-item ${cls}"><span class="ps-icon"></span>${s.label}</div>`;
+  });
+  Q('#proc-steps').innerHTML=html;
+}
+
+function hideProcessingOverlay(){
+  const overlay=Q('#processing-overlay');
+  if(!overlay)return;
+  if(overlay.classList.contains('active')){
+    // Flash 100% briefly before hiding
+    Q('#proc-bar').style.width='100%';
+    Q('#proc-pct').textContent='100%';
+    Q('#proc-step').textContent='Complete';
+    setTimeout(()=>{
+      overlay.classList.remove('active');
+      Q('#content').style.display='';
+    },600);
+  }
+}
+
+// ===========================================================================
 // Viewer
 // ===========================================================================
 function openViewer(sess){
   viewerSession=sess;
+  // Hide any leftover processing overlay from a previously viewed (in-progress) session
+  const overlay=Q('#processing-overlay');
+  if(overlay){
+    overlay.classList.remove('active');
+    Q('#content').style.display='';
+  }
   const v=Q('#viewer');
   const titleEl=Q('#v-title');
-  titleEl.textContent=sess.title||sess.id;
+  titleEl.innerHTML=esc(sess.title||sess.id)+
+    ' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">\u270E</button>';
   titleEl.title='Double-click to rename';
-  titleEl.style.cursor='pointer';
-  titleEl.ondblclick=function(){startRename(this,sess)};
+  titleEl.ondblclick=function(e){
+    // Only trigger on title text, not the button
+    if(e.target.tagName!=='BUTTON') startRename(this,sess);
+  };
 
   // Meta line
   const parts=sess.id.split('_');
@@ -966,6 +1249,7 @@ function openViewer(sess){
   // Tabs
   const files=sess.files||{};
   let tabs='';
+  if(files.audio && !files.transcript) tabs+=`<button class="tab on" onclick="switchTab(this,'process')">Process</button>`;
   if(files.transcript) tabs+=`<button class="tab on" onclick="switchTab(this,'transcript')">Transcript</button>`;
   if(files.analysis) tabs+=`<button class="tab" onclick="switchTab(this,'analysis')">Analysis</button>`;
   if(files.audio) tabs+=`<button class="tab" onclick="switchTab(this,'audio')">Audio</button>`;
@@ -1005,7 +1289,8 @@ function openViewer(sess){
   v.classList.add('open');
 
   // Load first tab
-  if(files.transcript) loadTab('transcript');
+  if(files.audio && !files.transcript) loadTab('process');
+  else if(files.transcript) loadTab('transcript');
   else if(files.analysis) loadTab('analysis');
   else if(files.audio) loadTab('audio');
 
@@ -1102,6 +1387,20 @@ async function loadTab(tab){
   const c=Q('#content');
   const files=viewerSession?.files||{};
 
+  if(tab==='process'){
+    const sid=viewerSession?.id||'';
+    c.innerHTML=`
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:32px;margin-bottom:12px">&#x1F3A4;</div>
+        <div style="font-size:15px;font-weight:600;color:#1e293b;margin-bottom:6px">Audio recorded — not yet processed</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:20px">Click below to transcribe and analyze this recording</div>
+        <button onclick="processSession('${sid}')" style="padding:10px 28px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s">
+          Transcribe &amp; Analyze
+        </button>
+      </div>`;
+    return;
+  }
+
   if(tab==='chat'){
     loadChatTab(viewerSession);
     return;
@@ -1113,8 +1412,8 @@ async function loadTab(tab){
   }
 
   if(tab==='audio'){
-    c.innerHTML=`<audio controls src="/api/download/${files.audio}" style="width:100%"></audio>
-      <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:8px">Use the player above to listen to the recording</p>`;
+    c.innerHTML='<div id="audio-wf-container"></div>';
+    createWaveformPlayer('/api/download/'+files.audio, c.querySelector('#audio-wf-container'));
     return;
   }
 
@@ -1132,20 +1431,18 @@ async function loadTab(tab){
     // F5: Embed audio player at top of transcript tab
     let audioBarHtml = '';
     if (tab === 'transcript' && viewerSession?.files?.audio) {
-      audioBarHtml = '<div class="transcript-audio-bar">'
-        + '<audio controls src="/api/download/' + viewerSession.files.audio + '"></audio>'
-        + '<div class="autoscroll-row">'
-        + '<input type="checkbox" id="autoscroll-cb" checked onchange="toggleAutoScroll(this)">'
-        + '<label for="autoscroll-cb">Auto-scroll during playback</label>'
-        + '</div></div>';
+      audioBarHtml = '<div class="transcript-audio-bar"><div id="transcript-wf-container"></div></div>';
     }
     c.innerHTML = audioBarHtml + legendHtml + renderMd(md);
-    // F5: Attach timeupdate listener to transcript audio
-    if (tab === 'transcript') {
-      _transcriptAudio = c.querySelector('.transcript-audio-bar audio');
-      if (_transcriptAudio) {
-        _transcriptAudio.addEventListener('timeupdate', onAudioTimeUpdate);
-      }
+    // Create waveform player for transcript and attach timeupdate for seek linkage
+    if (tab === 'transcript' && viewerSession?.files?.audio) {
+      const wfContainer = c.querySelector('#transcript-wf-container');
+      createWaveformPlayer('/api/download/' + viewerSession.files.audio, wfContainer, {transcript:true}).then(audioEl => {
+        if(audioEl){
+          _transcriptAudio = audioEl;
+          _transcriptAudio.addEventListener('timeupdate', onAudioTimeUpdate);
+        }
+      });
     }
   }catch(e){
     c.innerHTML='<p class="empty">Failed to load</p>';
@@ -1710,7 +2007,7 @@ async function loadSessions(append){
       if(s.files.audio)      badges+='<span class="badge au">W</span>';
       return `<li class="sitem${viewerSession?.id===s.id?' active':''}" data-id="${s.id}" onclick='viewSess(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
         <div class="s-left"><div class="s-title">${esc(title)}</div><div class="s-date">${dateStr}${s.duration?' &middot; '+fmtDur(s.duration):''}${s.language?' &middot; '+s.language.toUpperCase():''}</div></div>
-        <div class="s-badges">${badges}<button class="s-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">&times;</button></div>
+        <div class="s-badges">${badges}<button class="s-rename" onclick="event.stopPropagation();renameSessionPrompt('${s.id}','${esc(title).replace(/'/g,"&#39;")}')" title="Rename">\u270E</button><button class="s-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">&times;</button></div>
       </li>`;
     }).join('');
 
@@ -1735,41 +2032,120 @@ async function loadSessions(append){
   }catch(e){console.error(e)}
 }
 
+async function renameSessionPrompt(id,currentTitle){
+  const decoded=document.createElement('div');decoded.innerHTML=currentTitle;
+  const name=prompt('Rename recording:',decoded.textContent);
+  if(!name||!name.trim())return;
+  try{
+    const r=await f(`/api/sessions/${id}/rename`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title:name.trim()})
+    });
+    if(!r.ok){
+      const d=await r.json();
+      alert('Rename failed: '+(d.error||'unknown'));
+      return;
+    }
+    if(viewerSession?.id===id){
+      viewerSession.title=name.trim();
+      Q('#v-title').innerHTML=esc(name.trim())+
+        ' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">\u270E</button>';
+    }
+    loadSessions();
+  }catch(e){alert('Rename failed: '+e.message)}
+}
+
 async function deleteSession(id){
   if(!confirm('Delete this session and all its files?')) return;
   try{
-    await f(`/api/sessions/${id}`,{method:'DELETE'});
+    // Close viewer first so browser releases any audio/file handles
     if(viewerSession?.id===id) closeViewer();
+    const r=await f(`/api/sessions/${id}`,{method:'DELETE'});
+    const data=await r.json();
+    if(!r.ok){
+      alert('Delete failed: '+(data.error||'Unknown error'));
+      return;
+    }
+    if(data.errors && data.errors.length){
+      console.warn('Some files could not be deleted:',data.errors);
+      alert('Some files could not be deleted:\n'+data.errors.map(e=>e.file+': '+e.error).join('\n'));
+    }
+    console.log('Deleted files:',data.deleted);
     loadSessions();
-  }catch(e){console.error('Delete failed:',e)}
+  }catch(e){
+    console.error('Delete failed:',e);
+    alert('Delete failed: '+e.message);
+  }
 }
 
-function viewSess(s){openViewer(s)}
+function viewSess(s){
+  // Hide the new recording view when opening a session
+  hideNewRecordingView();
+  openViewer(s);
+}
+
+function showNewRecordingView(){
+  closeViewer();
+  const v=Q('#new-recording-view');
+  if(v) v.style.display='';
+  const w=Q('#webhooks-view-wrap');
+  if(w) w.style.display='';
+  Q('#new-rec-btn')?.classList.add('active');
+  // Clear active session highlight in sidebar
+  document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
+}
+
+function hideNewRecordingView(){
+  const v=Q('#new-recording-view');
+  if(v) v.style.display='none';
+  const w=Q('#webhooks-view-wrap');
+  if(w) w.style.display='none';
+  Q('#new-rec-btn')?.classList.remove('active');
+}
 
 function startRename(el,sess){
-  const current=el.textContent;
+  if(!sess)return;
+  // Strip the pencil button's text from current title
+  const btn=el.querySelector('button');
+  const current=(sess.title||sess.id);
   const input=document.createElement('input');
   input.type='text';input.value=current;
   input.style.cssText='font-size:18px;font-weight:700;color:#1e293b;border:1px solid #6366f1;border-radius:6px;padding:2px 8px;width:100%;outline:none;';
-  el.textContent='';el.appendChild(input);input.focus();input.select();
-  function finish(save){
+  el.innerHTML='';el.appendChild(input);input.focus();input.select();
+  let done=false;
+  function restoreTitle(title){
+    el.innerHTML=esc(title)+
+      ' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">\u270E</button>';
+  }
+  async function finish(save){
+    if(done)return; done=true;
     const val=input.value.trim();
     if(save&&val&&val!==current){
-      el.textContent=val;
-      f(`/api/sessions/${sess.id}/rename`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({title:val})
-      }).then(()=>{
+      try{
+        const r=await f(`/api/sessions/${sess.id}/rename`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({title:val})
+        });
+        if(!r.ok){
+          const d=await r.json();
+          alert('Rename failed: '+(d.error||'unknown'));
+          restoreTitle(current);
+          return;
+        }
         if(viewerSession) viewerSession.title=val;
+        restoreTitle(val);
         loadSessions();
-      }).catch(()=>{el.textContent=current});
+      }catch(e){
+        alert('Rename failed: '+e.message);
+        restoreTitle(current);
+      }
     }else{
-      el.textContent=current;
+      restoreTitle(current);
     }
   }
   input.onkeydown=function(e){
     if(e.key==='Enter'){e.preventDefault();finish(true)}
-    if(e.key==='Escape'){finish(false)}
+    if(e.key==='Escape'){e.preventDefault();finish(false)}
   };
   input.onblur=function(){finish(true)};
 }
@@ -1905,6 +2281,120 @@ function onAudioTimeUpdate() {
 
 function toggleAutoScroll(cb) {
   _autoScroll = cb.checked;
+}
+
+// ===========================================================================
+// Waveform Player
+// ===========================================================================
+async function createWaveformPlayer(audioUrl, container, opts){
+  opts = opts || {};
+  const isTranscript = !!opts.transcript;
+  const sessionId = opts.sessionId || (viewerSession && viewerSession.id) || '';
+
+  container.innerHTML = `
+    <div class="waveform-player">
+      <div class="waveform-wrap" id="wf-wrap">
+        <canvas id="wf-canvas"></canvas>
+        <div class="waveform-progress" id="wf-progress"></div>
+        <div class="waveform-time" id="wf-time"></div>
+      </div>
+      <div class="waveform-controls">
+        <button class="wf-play-btn" id="wf-play">
+          <svg viewBox="0 0 16 16"><polygon points="4,2 14,8 4,14" id="wf-play-icon"/></svg>
+        </button>
+        <div class="wf-time-display" id="wf-time-display">0:00 / 0:00</div>
+        ${isTranscript ? '<div class="autoscroll-row" style="margin:0"><input type="checkbox" id="autoscroll-cb" checked onchange="toggleAutoScroll(this)"><label for="autoscroll-cb">Auto-scroll</label></div>' : ''}
+      </div>
+      <audio preload="metadata" src="${audioUrl}" id="wf-audio" style="display:none"></audio>
+    </div>`;
+
+  const wrap = container.querySelector('#wf-wrap');
+  const canvas = container.querySelector('#wf-canvas');
+  const progress = container.querySelector('#wf-progress');
+  const timeEl = container.querySelector('#wf-time');
+  const playBtn = container.querySelector('#wf-play');
+  const playIcon = container.querySelector('#wf-play-icon');
+  const timeDisplay = container.querySelector('#wf-time-display');
+  const audio = container.querySelector('#wf-audio');
+
+  // Fetch lightweight precomputed peaks instead of full audio
+  try {
+    const resp = await fetch(`/api/waveform/${sessionId}`);
+    if(resp.ok){
+      const data = await resp.json();
+      drawWaveform(canvas, data.peaks, true);
+    }
+  } catch(e) {
+    console.warn('Waveform load failed:', e);
+  }
+
+  function fmtTime(s){
+    const m=Math.floor(s/60), sec=Math.floor(s%60);
+    return m+':'+sec.toString().padStart(2,'0');
+  }
+
+  // Play/pause
+  playBtn.onclick = function(){
+    if(audio.paused){audio.play()}else{audio.pause()}
+  };
+  audio.onplay=function(){playIcon.setAttribute('points','3,2 6,2 6,14 3,14 10,2 13,2 13,14 10,14')};
+  audio.onpause=function(){playIcon.setAttribute('points','4,2 14,8 4,14')};
+
+  // Progress update
+  audio.ontimeupdate=function(){
+    const pct = audio.duration ? (audio.currentTime/audio.duration)*100 : 0;
+    progress.style.width = pct+'%';
+    timeEl.textContent = fmtTime(audio.currentTime);
+    timeDisplay.textContent = fmtTime(audio.currentTime)+' / '+fmtTime(audio.duration||0);
+  };
+
+  // Click to seek
+  wrap.onclick=function(e){
+    if(!audio.duration)return;
+    const rect=wrap.getBoundingClientRect();
+    const pct=(e.clientX-rect.left)/rect.width;
+    audio.currentTime=pct*audio.duration;
+    if(audio.paused) audio.play();
+  };
+
+  // Return audio element for transcript linkage
+  return audio;
+}
+
+function drawWaveform(canvas, peaks, preNormalized){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+  const mid = h / 2;
+  const barWidth = 2;
+  const gap = 2;
+  const step = barWidth + gap;
+  const bars = Math.floor(w / step);
+  const padding = 6;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Resample peaks array to match number of bars on screen
+  for(let i = 0; i < bars; i++){
+    const peakIdx = Math.floor(i * peaks.length / bars);
+    const val = Math.min(peakIdx, peaks.length - 1);
+    const normalized = preNormalized ? peaks[val] : Math.abs(peaks[val]);
+    const barH = Math.max(3, normalized * (h - padding * 2));
+
+    const alpha = 0.65 + normalized * 0.35;
+    ctx.fillStyle = `rgba(226,232,240,${alpha})`;
+
+    const x = i * step;
+    ctx.beginPath();
+    ctx.roundRect(x, mid - barH/2, barWidth, barH, 1);
+    ctx.fill();
+  }
 }
 
 // ===========================================================================
@@ -2054,7 +2544,7 @@ async function doImportFile(file){
 const _origSetUI=setUI;
 setUI=function(state){
   _origSetUI(state);
-  if(state==='done'||state==='idle'||state==='error'){
+  if(state==='done'||state==='idle'||state==='error'||state==='stopped'){
     const area=Q('#import-area');
     if(area){area.classList.remove('importing');}
     const prog=Q('#import-progress');

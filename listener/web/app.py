@@ -27,7 +27,7 @@ OUTPUT_DIR = Path("./transcripts")
 
 _lock = threading.Lock()
 _state = {
-    "status": "idle",       # idle | recording | processing | done | error
+    "status": "idle",       # idle | recording | stopped | processing | done | error
     "session_id": None,
     "start_time": None,
     "step": None,            # transcribing | titling | analyzing
@@ -78,7 +78,7 @@ def api_status():
 def api_start():
     global _recorder
     with _lock:
-        if _state["status"] not in ("idle", "done", "error"):
+        if _state["status"] not in ("idle", "done", "error", "stopped"):
             return jsonify({"error": f"Cannot start while {_state['status']}"}), 400
 
     global _streamer
@@ -147,23 +147,17 @@ def api_start():
 
 @app.route("/api/stop", methods=["POST"])
 def api_stop():
-    global _recorder
+    global _recorder, _streamer
     with _lock:
         if _state["status"] != "recording":
             return jsonify({"error": "Not currently recording"}), 400
 
         recorder = _recorder
         _recorder = None
-        audio_path = _state["_audio_path"]
-        language = _state["_language"]
-        model_size = _state["_model_size"]
-        skip_analysis = _state["_skip_analysis"]
-        recipe_id = _state.get("_recipe_id")
-        denoise = _state.get("_denoise", True)
         session_id = _state["session_id"]
 
-        _state["status"] = "processing"
-        _state["step"] = "transcribing"
+        _state["status"] = "stopped"
+        _state["step"] = None
         _state["start_time"] = None
 
     recorder.stop()
@@ -175,6 +169,38 @@ def api_stop():
         except Exception as e:
             logger.warning("Error stopping live transcription: %s", e)
         _streamer = None
+
+    return jsonify({"ok": True, "session_id": session_id})
+
+
+@app.route("/api/process/<session_id>", methods=["POST"])
+def api_process(session_id):
+    """Start processing a recorded session."""
+    with _lock:
+        if _state["status"] in ("recording", "processing"):
+            return jsonify({"error": f"Cannot process while {_state['status']}"}), 400
+
+    audio_path = str(OUTPUT_DIR / f"{session_id}.wav")
+    if not Path(audio_path).exists():
+        return jsonify({"error": "Audio file not found"}), 404
+
+    data = request.json or {}
+    language = data.get("language") or _state.get("_language")
+    model_size = data.get("model_size") or _state.get("_model_size", "large-v3")
+    skip_analysis = data.get("skip_analysis", _state.get("_skip_analysis", False))
+    recipe_id = data.get("recipe_id") or _state.get("_recipe_id")
+    denoise = data.get("denoise", _state.get("_denoise", True))
+
+    with _lock:
+        _state.update({
+            "status": "processing",
+            "session_id": session_id,
+            "start_time": None,
+            "step": "transcribing",
+            "error": None,
+            "files": {},
+            "title": None,
+        })
 
     threading.Thread(
         target=_process_recording,
@@ -261,7 +287,14 @@ def api_sessions():
         if f.suffix not in (".md", ".wav", ".json"):
             continue
 
+        # Skip internal/cache files
         if "_cleaned" in f.stem:
+            continue
+        if f.stem.endswith("_waveform"):
+            continue
+        if f.stem.endswith("_checkpoint"):
+            continue
+        if "_original" in f.stem:
             continue
 
         name = f.stem
@@ -449,6 +482,60 @@ def api_webhooks_test(webhook_id):
 
 
 # ---------------------------------------------------------------------------
+# Waveform Peaks API
+# ---------------------------------------------------------------------------
+
+@app.route("/api/waveform/<session_id>")
+def api_waveform(session_id):
+    """Return precomputed waveform peaks for the audio file.
+
+    Computes ~500 peak values from the WAV and caches as a JSON file.
+    Returns a few KB instead of streaming hundreds of MB to the browser.
+    """
+    import numpy as np
+
+    cache_path = OUTPUT_DIR / f"{session_id}_waveform.json"
+
+    # Serve from cache if available
+    if cache_path.exists():
+        return cache_path.read_text(), 200, {"Content-Type": "application/json"}
+
+    audio_path = OUTPUT_DIR / f"{session_id}.wav"
+    if not audio_path.exists():
+        return jsonify({"error": "Audio not found"}), 404
+
+    try:
+        import soundfile as sf
+        data, samplerate = sf.read(str(audio_path), dtype="float32")
+        # If stereo, take first channel
+        if data.ndim > 1:
+            data = data[:, 0]
+
+        num_peaks = 500
+        samples_per_peak = max(1, len(data) // num_peaks)
+        peaks = []
+        for i in range(num_peaks):
+            start = i * samples_per_peak
+            end = min(start + samples_per_peak, len(data))
+            if start >= len(data):
+                break
+            chunk = np.abs(data[start:end])
+            peaks.append(float(np.max(chunk)))
+
+        # Normalize to 0-1
+        max_peak = max(peaks) if peaks else 1.0
+        if max_peak > 0:
+            peaks = [round(p / max_peak, 3) for p in peaks]
+
+        result = json.dumps({"peaks": peaks, "duration": len(data) / samplerate})
+        cache_path.write_text(result)
+        return result, 200, {"Content-Type": "application/json"}
+    except Exception as e:
+        logger.error("Waveform generation failed for %s: %s", session_id, e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
 # Session Management (delete, reanalyze, rename)
 # ---------------------------------------------------------------------------
 
@@ -456,21 +543,29 @@ def api_webhooks_test(webhook_id):
 def api_delete_session(session_id):
     """Delete all files for a session."""
     deleted = []
-    for fpath in OUTPUT_DIR.glob(f"{session_id}*"):
+    errors = []
+    # Collect files first (list, not generator) so delete failures don't abort iteration
+    files_to_delete = list(OUTPUT_DIR.glob(f"{session_id}*"))
+    logger.info("Deleting session %s: %d files found", session_id, len(files_to_delete))
+    for fpath in files_to_delete:
         if fpath.is_file():
-            fpath.unlink()
-            deleted.append(fpath.name)
+            try:
+                fpath.unlink()
+                deleted.append(fpath.name)
+            except Exception as e:
+                logger.warning("Failed to delete %s: %s", fpath.name, e)
+                errors.append({"file": fpath.name, "error": str(e)})
     # Also remove from search index
     try:
         from listener.db import get_db
         conn = get_db()
         conn.execute("DELETE FROM meetings WHERE session_id = ?", (session_id,))
         conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to delete search index entry for %s: %s", session_id, e)
     # Clear chat session if any
     _chat_sessions.pop(session_id, None)
-    return jsonify({"deleted": deleted})
+    return jsonify({"deleted": deleted, "errors": errors})
 
 
 @app.route("/api/reanalyze/<session_id>", methods=["POST"])
@@ -569,17 +664,33 @@ def api_reanalyze(session_id):
 
 @app.route("/api/sessions/<session_id>/rename", methods=["POST"])
 def api_rename_session(session_id):
-    """Rename a session's title."""
+    """Rename a session's title.
+
+    Works for both processed sessions (updates _meta.json) and unprocessed
+    sessions (creates a minimal _meta.json with just the title).
+    """
     data = request.json or {}
     new_title = data.get("title", "").strip()
     if not new_title:
         return jsonify({"error": "Title cannot be empty"}), 400
-    meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
-    if not meta_path.exists():
+
+    # Require that at least some file exists for this session
+    audio_path = OUTPUT_DIR / f"{session_id}.wav"
+    transcript_path = OUTPUT_DIR / f"{session_id}_transcript.md"
+    if not audio_path.exists() and not transcript_path.exists():
         return jsonify({"error": "Session not found"}), 404
-    meta = json.loads(meta_path.read_text())
+
+    meta_path = OUTPUT_DIR / f"{session_id}_meta.json"
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text())
+        except Exception:
+            meta = {}
+    else:
+        meta = {}
     meta["title"] = new_title
     meta_path.write_text(json.dumps(meta, ensure_ascii=False))
+
     # Update search index
     try:
         from listener.db import get_db
@@ -752,23 +863,28 @@ def _process_recording(audio_path, session_id, language, model_size, skip_analys
     try:
         from listener.transcriber import transcribe
 
-        # F7: Noise preprocessing
-        transcribe_path = audio_path  # default: use original audio
-        if denoise:
+        # F7: Noise preprocessing — skip if cleaned file already exists
+        cleaned_path = audio_path.replace(".wav", "_cleaned.wav")
+        if Path(cleaned_path).exists():
+            logger.info("Denoised audio already exists for %s, skipping", session_id)
+            transcribe_path = cleaned_path
+        elif denoise:
             try:
                 with _lock:
                     _state["step"] = "denoising"
                 from listener.preprocessor import preprocess_audio
-                cleaned_path = audio_path.replace(".wav", "_cleaned.wav")
                 transcribe_path = preprocess_audio(audio_path, cleaned_path)
                 logger.info("Audio denoised for session %s", session_id)
             except Exception as e:
                 logger.warning("Noise reduction failed (continuing with original): %s", e)
                 transcribe_path = audio_path
+        else:
+            transcribe_path = audio_path
 
         with _lock:
             _state["step"] = "transcribing"
 
+        # Transcribe — automatically resumes from checkpoint if interrupted
         result = transcribe(transcribe_path, model_size=model_size, language=language)
 
         if not result.segments:
