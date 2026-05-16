@@ -1,11 +1,44 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 *.egg-info/
 dist/
 build/
 .eggs/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Virtualenvs / envs
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Runtime data — never commit
 *.wav
+*.mp3
+*.m4a
+*.flac
 transcripts/
 automation_logs/
-.venv/
-.env
+
+# Local model caches
+models/
+.models/
+*.bin
+*.safetensors
+
+# Local Claude Code config
+.claude/settings.local.json
