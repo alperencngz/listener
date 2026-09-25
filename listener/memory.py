@@ -320,8 +320,14 @@ GENERATION_USER_TEMPLATE = """\
 Meeting title: {title}
 Transcript language hint: {language}
 
-Extract the meeting memory from the transcript below. Return one JSON object with the keys \
-"summary", "key_points", "decisions", "tasks" and "open_questions".
+Extract the meeting memory from the transcript below. Return one JSON object with exactly this shape \
+(every list item is an object with a "text" field; use null for unknown values):
+
+{{"summary": "...",
+ "key_points": [{{"text": "...", "ts": "MM:SS or null"}}],
+ "decisions": [{{"text": "...", "rationale": "... or null", "ts": "MM:SS or null"}}],
+ "tasks": [{{"text": "...", "owner": "name or null", "deadline": "words as spoken or null", "ts": "MM:SS or null"}}],
+ "open_questions": [{{"text": "...", "ts": "MM:SS or null"}}]}}
 
 <transcript>
 {transcript}
