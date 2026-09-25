@@ -6,6 +6,7 @@ DB location: ~/.listener/listener.db
 import json
 import sqlite3
 import logging
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,12 @@ logger = logging.getLogger(__name__)
 DB_PATH = Path.home() / ".listener" / "listener.db"
 
 _conn: sqlite3.Connection | None = None
+
+# One shared connection is used from Flask request threads and background
+# worker threads. Python's sqlite3 serialises individual statements, but a
+# multi-statement write (execute + commit) from two threads can interleave.
+# Hold DB_LOCK around any read-modify-write sequence.
+DB_LOCK = threading.RLock()
 
 
 def get_db() -> sqlite3.Connection:
@@ -71,6 +78,17 @@ def get_db() -> sqlite3.Connection:
     conn.commit()
     _conn = conn
     return conn
+
+
+def reset_db() -> None:
+    """Close the module-level connection (tests swap DB_PATH and call this)."""
+    global _conn
+    if _conn is not None:
+        try:
+            _conn.close()
+        except Exception:
+            pass
+    _conn = None
 
 
 def insert_meeting(

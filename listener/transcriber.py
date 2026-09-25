@@ -10,6 +10,11 @@ segment so the process can continue from where it left off if interrupted.
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
+
+
+class TranscriptionInterrupted(Exception):
+    """Raised when ``should_stop`` asked us to stop; the checkpoint is kept on disk."""
 
 
 @dataclass
@@ -124,6 +129,8 @@ def transcribe(
     compute_type: str = "auto",
     multilingual: bool = False,
     hotwords: str | None = None,
+    should_stop: Callable[[], bool] | None = None,
+    on_progress: Callable[[int, float, float], None] | None = None,
 ) -> TranscriptionResult:
     """Transcribe an audio file using faster-whisper.
 
@@ -139,9 +146,17 @@ def transcribe(
         multilingual: Re-detect language per 30s window — needed for
             code-switching speech (e.g. Turkish with English sentences).
         hotwords: Domain terms to bias decoding toward (names, jargon).
+        should_stop: Optional callback polled after every segment. When it
+            returns True the checkpoint is left on disk and
+            TranscriptionInterrupted is raised (resume by calling again).
+        on_progress: Optional callback ``(segments_done, last_end_seconds,
+            audio_duration_seconds)`` called after every segment.
 
     Returns:
         TranscriptionResult with segments and metadata.
+
+    Raises:
+        TranscriptionInterrupted: if ``should_stop`` returned True.
     """
     from faster_whisper import WhisperModel
 
@@ -226,6 +241,16 @@ def transcribe(
                 audio_path, segments, detected_lang,
                 detected_prob, info.duration,
             )
+            if on_progress is not None:
+                try:
+                    on_progress(len(segments), float(seg.end), float(info.duration))
+                except Exception:
+                    pass
+            if should_stop is not None and should_stop():
+                print(f"Transcription interrupted at {_fmt_ts(seg.end)}; checkpoint kept.")
+                raise TranscriptionInterrupted(
+                    f"Stopped at {_fmt_ts(seg.end)} ({len(segments)} segments saved to checkpoint)"
+                )
 
     # Transcription complete — remove checkpoint
     _clear_checkpoint(audio_path)

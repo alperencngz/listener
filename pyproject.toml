@@ -26,3 +26,8 @@ dependencies = [
 
 [project.scripts]
 listener = "listener.cli:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
