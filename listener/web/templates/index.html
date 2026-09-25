@@ -712,6 +712,225 @@ select:disabled{opacity:.45;cursor:not-allowed}
   font-size:11px;color:#6366f1;background:#eef2ff;
   padding:2px 8px;border-radius:4px;font-weight:600;
 }
+
+/* ---- Shared buttons / messages / chips ---- */
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:7px 14px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;
+  background:#fff;color:#475569;line-height:1.2;white-space:nowrap;
+}
+.btn:hover{background:#f1f5f9;border-color:#cbd5e1;color:#334155}
+.btn.primary{background:#6366f1;border-color:#6366f1;color:#fff}
+.btn.primary:hover{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.btn.danger{color:#ef4444;border-color:#fecaca}
+.btn.danger:hover{background:#fef2f2;border-color:#ef4444;color:#ef4444}
+.btn.sm{padding:4px 10px;font-size:11px}
+.btn.armed{background:#f59e0b;border-color:#f59e0b;color:#fff}
+.btn.armed:hover{background:#d97706;border-color:#d97706;color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.msg{font-size:12px;color:#64748b;margin-top:6px;line-height:1.5}
+.msg.ok{color:#16a34a}
+.msg.err{color:#ef4444}
+.msg:empty{display:none}
+.muted{color:#94a3b8;font-size:12px}
+.helper-text{font-size:11px;color:#94a3b8;margin-top:10px}
+.inline-input{
+  padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:13px;outline:none;flex:1;min-width:160px;background:#fff;color:#0f172a;
+}
+.inline-input:focus{border-color:#6366f1}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;
+  background:#f1f5f9;color:#64748b;white-space:nowrap;
+}
+.chip.queued{background:#f1f5f9;color:#64748b}
+.chip.running{background:#dbeafe;color:#2563eb}
+.chip.done{background:#dcfce7;color:#16a34a}
+.chip.failed{background:#fee2e2;color:#dc2626}
+.chip.interrupted{background:#fef3c7;color:#b45309}
+.chip.rec{background:#fee2e2;color:#dc2626}
+.spin-sm{
+  width:10px;height:10px;border:2px solid rgba(37,99,235,.3);border-top-color:#2563eb;
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0;
+}
+.pill{
+  font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;
+}
+.pill.transcribe{background:#dbeafe;color:#3b82f6}
+.pill.analyze{background:#dcfce7;color:#16a34a}
+.pill.memory{background:#ede9fe;color:#7c3aed}
+.toast{
+  position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;
+  padding:10px 14px;border-radius:10px;font-size:13px;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:100;display:none;max-width:360px;
+}
+
+/* ---- Sidebar nav + session chips ---- */
+.nav-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:9px 14px;background:#fff;color:#475569;
+  border:1px solid #e2e8f0;border-radius:10px;
+  font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;
+}
+.nav-btn:hover{background:#f8fafc;border-color:#cbd5e1}
+.nav-btn.active{
+  background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-color:transparent;
+  box-shadow:0 1px 3px rgba(99,102,241,.25);
+}
+.s-chip{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:6px;
+  text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;
+}
+.s-chip.queued{background:#f1f5f9;color:#64748b}
+.s-chip.running{background:#dbeafe;color:#2563eb}
+.s-chip.failed{background:#fee2e2;color:#dc2626}
+.s-chip.interrupted{background:#fef3c7;color:#b45309}
+.s-chip.rec{background:#fee2e2;color:#dc2626}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:livePulse 1.5s ease-in-out infinite}
+.badge.me{background:#ede9fe;color:#7c3aed}
+
+/* ---- Recorder additions ---- */
+.rec-note{
+  margin-top:8px;font-size:12px;color:#b45309;background:#fffbeb;
+  border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;max-width:520px;text-align:center;
+}
+.rec-after{
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+  margin-top:14px;width:100%;max-width:560px;
+}
+.rec-card .msg{text-align:center}
+
+/* ---- Processing queue ---- */
+.q-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.q-actions{display:flex;gap:6px;flex-wrap:wrap}
+.q-note{font-size:11px;color:#94a3b8;margin-bottom:10px}
+.q-status{font-size:13px;color:#334155;font-weight:600;margin-bottom:10px}
+.q-row{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;
+  margin-bottom:6px;background:#f8fafc;
+}
+.q-row.running{border-color:#bfdbfe;background:#eff6ff}
+.q-row.failed{border-color:#fecaca;background:#fef2f2}
+.q-row.interrupted{border-color:#fcd34d;background:#fffbeb}
+.q-check{width:16px;flex-shrink:0;padding-top:2px}
+.q-main{flex:1;min-width:0}
+.q-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.q-title{font-size:13px;font-weight:600;color:#1e293b;text-decoration:none}
+.q-title:hover{color:#6366f1;text-decoration:underline}
+.q-stage{font-size:12px;color:#64748b}
+.q-time{font-size:11px;color:#94a3b8;margin-left:auto}
+.q-err{
+  margin-top:6px;font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:11.5px;
+  color:#b91c1c;background:#fff;border:1px solid #fecaca;border-radius:6px;padding:6px 8px;
+  white-space:pre-wrap;word-break:break-word;user-select:text;text-align:left;line-height:1.5;
+}
+.q-btns{display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+
+/* ---- Import result ---- */
+.import-result{margin-top:10px;font-size:13px;color:#334155;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.import-result .err{color:#ef4444}
+
+/* ---- Viewer: Transcribe / Analysis / Memory tabs ---- */
+.tx-empty{text-align:center;padding:40px 20px}
+.tx-icon{font-size:32px;margin-bottom:12px}
+.tx-h{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:6px}
+.tx-p{font-size:13px;color:#94a3b8;margin-bottom:18px}
+.tx-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.tx-empty .q-err{max-width:560px;margin:12px auto}
+.tab-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tab-actions .recipe-select{width:auto;flex:1;min-width:180px}
+.job-inline{display:flex;align-items:center;gap:8px;font-size:13px;margin:8px 0;flex-wrap:wrap}
+.job-inline.running{color:#2563eb;font-weight:600}
+.job-inline.failed{flex-direction:column;align-items:flex-start;color:#b91c1c;font-weight:600}
+.job-inline.failed .q-err{font-weight:400;width:100%}
+.mem-section{margin-bottom:14px}
+.todo{
+  display:flex;align-items:flex-start;gap:8px;padding:6px 8px;
+  border-radius:8px;border:1px solid #e2e8f0;background:#fff;margin-bottom:6px;
+  font-size:13px;color:#334155;
+}
+.todo .ts{
+  font-family:'SF Mono',SFMono-Regular,Menlo,monospace;
+  font-size:12px;color:#6366f1;background:#eef2ff;padding:1px 5px;border-radius:4px;
+}
+.todo input[type=checkbox]{margin-top:4px;flex-shrink:0}
+.todo.done .todo-text{text-decoration:line-through;color:#94a3b8}
+.todo.stale{border-style:dashed;opacity:.8}
+.todo-body{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;line-height:1.5}
+.todo-acts{display:flex;gap:2px;flex-shrink:0}
+.icon-btn{background:none;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:12px;color:#94a3b8;cursor:pointer;line-height:1.3}
+.icon-btn:hover{color:#6366f1;border-color:#c7d2fe;background:#eef2ff}
+.icon-btn.del:hover{color:#ef4444;border-color:#fecaca;background:#fef2f2}
+.owner-pill{font-size:11px;font-weight:600;color:#0891b2;background:#ecfeff;padding:1px 7px;border-radius:999px}
+.deadline-pill{font-size:11px;font-weight:600;color:#d97706;background:#fffbeb;padding:1px 7px;border-radius:999px}
+.marker{font-size:10px;font-weight:600;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
+.marker.stale{color:#64748b;background:#f1f5f9}
+.todo-edit{display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center}
+.todo-edit input{padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;outline:none;background:#fff}
+.todo-edit input:focus{border-color:#6366f1}
+.todo-edit input.t{flex:2;min-width:160px}
+.todo-edit input.o,.todo-edit input.d{flex:1;min-width:90px}
+.todo-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.todo-add input{padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;outline:none;background:#fff}
+.todo-add input:focus{border-color:#6366f1}
+.todo-add input.t{flex:2;min-width:160px}
+.todo-add input.o,.todo-add input.d{flex:1;min-width:90px}
+.mem-prov{font-size:12px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:12px;margin-top:16px;line-height:1.7}
+.mem-prov details{margin:6px 0}
+.mem-prov summary{cursor:pointer;color:#475569;font-weight:600}
+.mem-prov ul{padding-left:20px;margin:4px 0}
+.content .rationale{font-style:italic;color:#64748b}
+
+/* ---- Memory view ---- */
+.mv-list{max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:4px;background:#fff}
+.mv-list::-webkit-scrollbar{width:5px}
+.mv-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.mv-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.mv-row:hover{background:#f8fafc}
+.mv-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;flex-shrink:0}
+.mv-dot.on{background:#7c3aed}
+.mv-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b;font-weight:500}
+.mv-date{font-size:11px;color:#94a3b8;white-space:nowrap}
+.mv-snippet{font-size:12px;color:#475569;padding:0 8px 8px 34px;line-height:1.5}
+.mv-snippet mark{background:#fef08a;color:#1e293b;border-radius:2px;padding:0 1px}
+.mv-sub{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px}
+.mv-sel-head{display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px;gap:8px;flex-wrap:wrap}
+.mv-sel-head > div{display:flex;gap:6px}
+.sel-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sel-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#eef2ff;color:#4338ca;padding:3px 8px;border-radius:999px;font-weight:600;max-width:100%}
+.sel-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.sel-chip button{background:none;border:none;color:#6366f1;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.sel-chip button:hover{color:#ef4444}
+.mv-proj-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+.mv-proj-row select{flex:1;min-width:180px}
+.ask-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.ask-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.ask-answer{
+  margin-top:12px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+  font-size:14px;line-height:1.7;color:#334155;
+}
+.ask-answer h1{font-size:17px;font-weight:700;color:#1e293b;margin:12px 0 8px}
+.ask-answer h2{font-size:15px;font-weight:700;color:#334155;margin:12px 0 6px}
+.ask-answer h3{font-size:14px;font-weight:600;color:#475569;margin:10px 0 4px}
+.ask-answer p{margin:6px 0}
+.ask-answer ul,.ask-answer ol{padding-left:22px;margin:6px 0}
+.ask-answer li{margin:3px 0}
+.ask-answer strong{color:#1e293b}
+.ask-answer .ts{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:12px;color:#6366f1;background:#eef2ff;padding:1px 5px;border-radius:4px}
+.sources{margin-top:10px;font-size:13px;color:#334155}
+.sources ul{list-style:none;padding:0;margin:4px 0}
+.sources li{padding:3px 0}
+.sources a{color:#6366f1;cursor:pointer;text-decoration:none;font-weight:600}
+.sources a:hover{text-decoration:underline}
+.todo-group{margin-bottom:12px}
+.todo-group-h{font-size:13px;font-weight:700;color:#334155;margin-bottom:6px}
+.todo-group-h a{color:#334155;cursor:pointer;text-decoration:none}
+.todo-group-h a:hover{color:#6366f1}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
@@ -726,6 +945,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <button class="new-rec-btn" id="new-rec-btn" onclick="showNewRecordingView()">
       <span class="new-rec-plus">+</span> New Recording
     </button>
+    <button class="nav-btn" id="memory-nav-btn" onclick="showMemoryView()">Memory</button>
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search meetings..." onkeydown="if(event.key==='Enter')doSearch()">
       <button onclick="doSearch()">Go</button>
@@ -742,7 +962,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
 
 <!-- Main content -->
 <div class="main">
-  <!-- New Recording view: settings + recorder + import (hidden when viewing a session) -->
+  <!-- New Recording view: settings + recorder + queue + import (hidden when viewing a session) -->
   <div id="new-recording-view">
   <!-- Settings -->
   <div class="card" id="settings-card">
@@ -755,31 +975,22 @@ select:disabled{opacity:.45;cursor:not-allowed}
       <div class="fg">
         <label for="language">Language</label>
         <select id="language">
-          <option value="">Auto (Mixed Language)</option>
+          <option value="">Auto detect</option>
+          <option value="mixed">Mixed Turkish + English</option>
           <option value="en">Force English</option>
           <option value="tr">Force Turkish</option>
         </select>
-      </div>
-      <div class="fg" style="min-width:200px">
-        <label for="recipe">Analysis Recipe</label>
-        <select id="recipe" class="recipe-select">
-          <option value="">Loading...</option>
-        </select>
-        <div class="recipe-desc" id="recipe-desc"></div>
       </div>
       <div class="cb-row">
         <input type="checkbox" id="denoise" checked>
         <label for="denoise">Enable noise reduction (cleaner audio for transcription)</label>
       </div>
       <div class="cb-row">
-        <input type="checkbox" id="skip-analysis">
-        <label for="skip-analysis">Skip Claude analysis (transcript only)</label>
-      </div>
-      <div class="cb-row">
         <input type="checkbox" id="live-transcription">
         <label for="live-transcription">Live transcription (show text while recording)</label>
       </div>
     </div>
+    <div class="helper-text">Language and noise reduction apply when you add a recording to the queue.</div>
   </div>
 
   <!-- Recorder -->
@@ -790,6 +1001,31 @@ select:disabled{opacity:.45;cursor:not-allowed}
     </button>
     <div id="timer" class="timer">00:00</div>
     <div id="stxt" class="stxt">Ready</div>
+    <div id="rec-note" class="rec-note" style="display:none"></div>
+    <div id="rec-after" class="rec-after" style="display:none">
+      <input type="text" id="rec-name" class="inline-input" placeholder="Name this recording" onkeydown="if(event.key==='Enter')saveRecName()">
+      <button class="btn" onclick="saveRecName()">Save name</button>
+      <button class="btn primary" id="rec-queue-btn" onclick="queueStoppedRecording()">Add to queue</button>
+      <button class="btn" onclick="openStoppedRecording()">Open</button>
+    </div>
+    <div class="msg" id="rec-after-msg"></div>
+  </div>
+
+  <!-- Processing queue -->
+  <div class="card" id="queue-card">
+    <div class="q-head">
+      <div class="card-label" style="margin-bottom:0">Processing queue</div>
+      <div class="q-actions">
+        <button class="btn primary" id="q-run" onclick="runQueued()">Run queued</button>
+        <button class="btn" id="q-run-sel" onclick="runSelected()" disabled>Run selected</button>
+        <button class="btn danger" id="q-stop" onclick="stopRun()" style="display:none">Stop</button>
+        <button class="btn" id="q-clear" onclick="clearFinished()">Clear finished</button>
+      </div>
+    </div>
+    <div class="q-note">Transcription runs only when you press Run. One recording is transcribed at a time; you can keep recording meanwhile.</div>
+    <div class="q-status" id="q-status">Idle</div>
+    <div class="msg" id="q-msg"></div>
+    <div class="q-list" id="q-list"><div class="empty">Nothing queued. Stop a recording or import audio, then add it here.</div></div>
   </div>
 
   <!-- Import Meeting -->
@@ -800,8 +1036,9 @@ select:disabled{opacity:.45;cursor:not-allowed}
       <div class="import-icon">&#x1F4C1;</div>
       <div class="import-text">Drop an audio file here or <strong>click to browse</strong></div>
       <div class="import-hint">WAV, MP3, M4A, FLAC, OGG, WebM</div>
-      <div class="import-progress" id="import-progress">Processing...</div>
+      <div class="import-progress" id="import-progress">Uploading...</div>
     </div>
+    <div class="import-result" id="import-result" style="display:none"></div>
   </div>
 
   <!-- Live Transcription Panel (F9) -->
@@ -817,11 +1054,68 @@ select:disabled{opacity:.45;cursor:not-allowed}
   </div>
   </div><!-- /#new-recording-view -->
 
+  <!-- Memory view -->
+  <div id="memory-view" style="display:none">
+    <div class="card">
+      <div class="card-label">Meetings</div>
+      <div class="search-bar">
+        <input type="text" id="mv-search" placeholder="Search meeting memory..." onkeydown="if(event.key==='Enter')mvSearch()">
+        <button onclick="mvSearch()">Search</button>
+        <button class="clear-btn" id="mv-search-clear" onclick="mvClearSearch()" style="display:none">X</button>
+      </div>
+      <div class="msg" id="mv-search-msg"></div>
+      <div class="mv-list" id="mv-search-results" style="display:none"></div>
+      <div class="mv-sub">Recent meetings</div>
+      <div class="mv-list" id="mv-recent"><div class="empty">Loading...</div></div>
+      <div class="mv-sel-head">
+        <span class="mv-sub" style="margin:0">Selected meetings</span>
+        <div>
+          <button class="btn sm" onclick="mvSelectAllShown()">Select all shown</button>
+          <button class="btn sm" onclick="mvClearSel()">Clear</button>
+        </div>
+      </div>
+      <div class="sel-chips" id="mv-sel-chips"><span class="muted">No meetings selected.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Projects</div>
+      <div class="mv-proj-row">
+        <select id="mv-project" onchange="mvProjectChanged()"><option value="">Choose a project...</option></select>
+        <button class="btn danger sm" id="mv-proj-del" onclick="mvDeleteProject()" disabled>Delete project</button>
+      </div>
+      <div class="mv-proj-row">
+        <input type="text" id="mv-proj-name" class="inline-input" placeholder="Project name" onkeydown="if(event.key==='Enter')mvSaveProject()">
+        <button class="btn primary sm" onclick="mvSaveProject()">Save selection as project</button>
+      </div>
+      <div class="msg" id="mv-proj-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Ask</div>
+      <div class="ask-quick">
+        <button class="btn sm" onclick="mvQuick('Summarize the shared context')">Summarize the shared context</button>
+        <button class="btn sm" onclick="mvQuick('What was decided?')">What was decided?</button>
+        <button class="btn sm" onclick="mvQuick('What is still open?')">What is still open?</button>
+      </div>
+      <textarea id="mv-question" class="chat-input" rows="3" style="width:100%;max-height:none" placeholder="Ask about the selected meetings..."></textarea>
+      <div class="ask-row">
+        <button class="btn primary" id="mv-ask-btn" onclick="mvAsk()">Ask Claude</button>
+        <span class="helper-text" style="margin:0">Only stored meeting memory is sent, not full transcripts.</span>
+      </div>
+      <div class="msg" id="mv-ask-msg"></div>
+      <div class="ask-answer" id="mv-answer" style="display:none"></div>
+      <div class="sources" id="mv-sources"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Open to-dos</div>
+      <div class="msg" id="mv-todo-msg"></div>
+      <div id="mv-todos"><div class="empty">Loading...</div></div>
+    </div>
+  </div><!-- /#memory-view -->
+
   <!-- Viewer -->
   <div class="card viewer" id="viewer">
     <div class="v-head">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
+        <div style="min-width:0;flex:1">
           <div class="v-title" id="v-title"></div>
           <div class="v-meta" id="v-meta"></div>
         </div>
@@ -860,17 +1154,32 @@ select:disabled{opacity:.45;cursor:not-allowed}
   </div>
   </div><!-- /#webhooks-view-wrap -->
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
 // ===========================================================================
 // State
 // ===========================================================================
-let ui = 'idle';
-let tRef = null, recStart = null;
-let viewerSession = null;  // currently viewed session data
+let viewerSession = null;   // currently viewed session data
+let _viewerTab = null;      // name of the active viewer tab
+let _status = null;         // last /api/status payload
+let _lastJobs = null;       // job id -> {status, session_id, kind} from the previous poll
+let _recActive = false, _recStart = null, _tRef = null;
+let _recAfter = null;       // {id} of the last stopped recording (inline row)
+let _importAfter = null;    // {id, title} of the last import
+let _queueSel = new Set();  // selected queued transcribe job ids
+let _sessionsCache = {};    // session id -> session object
+let _recipes = [];
+let _memRecord = null;      // memory record shown in the viewer's Memory tab
+let _lastQueueHtml = '';
 
 const DL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 11.586V4a1 1 0 011-1z"/><path d="M3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg>';
 const EXPORT_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 11.25a.75.75 0 001.5 0v-2.546l.943.942a.75.75 0 101.06-1.06l-2.22-2.22a.75.75 0 00-1.06 0l-2.22 2.22a.75.75 0 001.06 1.06l.937-.938v2.542z" clip-rule="evenodd"/></svg>';
+
+const STAGE_LABELS={denoising:'Reducing noise',transcribing:'Transcribing',diarizing:'Identifying speakers',saving:'Saving',analyzing:'Analyzing with Claude',generating:'Updating memory',starting:'Starting'};
+const KIND_LABELS={transcribe:'Transcribe',analyze:'Analyze',memory:'Memory'};
+const STATUS_LABELS={queued:'Queued',running:'Running',done:'Done',failed:'Failed',interrupted:'Interrupted'};
+const JSON_HDR={'Content-Type':'application/json'};
 
 // ===========================================================================
 // Init
@@ -882,8 +1191,66 @@ const EXPORT_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" f
   loadWebhooks();
   // New Recording view is shown by default
   Q('#new-rec-btn')?.classList.add('active');
+  await poll();
   setInterval(poll, 1200);
 })();
+
+// ===========================================================================
+// Small helpers (esc/Q/f/val are defined further down)
+// ===========================================================================
+function attr(s){return esc(s==null?'':String(s)).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function setMsg(sel,text,cls){
+  const el=Q(sel); if(!el)return;
+  el.textContent=text||'';
+  el.className='msg'+(cls?' '+cls:'');
+}
+async function postJson(url,body,method){
+  try{
+    const r=await f(url,{method:method||'POST',headers:JSON_HDR,body:JSON.stringify(body||{})});
+    let d={};
+    try{d=await r.json()}catch(e){}
+    return {ok:r.ok,status:r.status,data:d,error:r.ok?'':(d.error||('Request failed ('+r.status+')'))};
+  }catch(e){
+    return {ok:false,status:0,data:{},error:'Network error: '+e.message};
+  }
+}
+let _toastT=null;
+function toast(text){
+  const t=Q('#toast'); if(!t)return;
+  t.textContent=text; t.style.display='block';
+  clearTimeout(_toastT); _toastT=setTimeout(()=>{t.style.display='none'},5000);
+}
+function fmtClock(iso){
+  if(!iso)return '';
+  const d=new Date(iso);
+  if(isNaN(d.getTime()))return '';
+  return pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function fmtDateTime(iso){
+  if(!iso)return '';
+  const m=String(iso).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  return m?m[1]+' '+m[2]:String(iso);
+}
+function sessionDate(id){
+  const parts=String(id||'').split('_');
+  return parts[0]+' '+(parts[1]||'').replace(/-/g,':');
+}
+function latestJob(sid,kind){
+  const jobs=(_status&&_status.jobs)||[];
+  return jobs.find(j=>j.session_id===sid&&j.kind===kind)||null;
+}
+function isActiveJob(j){return !!j&&(j.status==='queued'||j.status==='running')}
+function stageText(j){
+  let t=STAGE_LABELS[j.stage]||'';
+  const p=j.progress||{};
+  if(j.status==='running'&&p.duration_seconds){
+    t+=(t?' ':'')+fmtT(p.position_seconds||0)+' / '+fmtT(p.duration_seconds);
+  }
+  return t;
+}
+function safeSnippet(s){
+  return esc(s||'').replace(/&lt;mark&gt;/g,'<mark>').replace(/&lt;\/mark&gt;/g,'</mark>');
+}
 
 // ===========================================================================
 // Devices
@@ -893,198 +1260,210 @@ async function loadDevices(){
     const r=await f('/api/devices');
     const devs=await r.json();
     const s=Q('#device');
-    s.innerHTML=devs.map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+    s.innerHTML=devs.map(d=>`<option value="${attr(d.id)}">${esc(d.name)}</option>`).join('');
   }catch(e){console.error(e)}
 }
 
 // ===========================================================================
-// Recipes (F3)
+// Recipes (F3) — used by the Analysis tab
 // ===========================================================================
-let _recipes = [];
-
 async function loadRecipes(){
   try{
     const r=await f('/api/recipes');
-    _recipes=await r.json();
-    const s=Q('#recipe');
-    let opts='<option value="">Standard Summary (default)</option>';
-    const cats={};
-    _recipes.forEach(rec=>{
-      if(!cats[rec.category])cats[rec.category]=[];
-      cats[rec.category].push(rec);
-    });
-    // Group by category
-    const catOrder=['general','sales','engineering','management','research','hiring','project'];
-    const catLabels={general:'General',sales:'Sales',engineering:'Engineering',management:'Management',research:'Research',hiring:'Hiring',project:'Project'};
-    catOrder.forEach(cat=>{
-      const items=cats[cat];
-      if(!items)return;
-      opts+=`<optgroup label="${catLabels[cat]||cat}">`;
-      items.forEach(rec=>{
-        // Skip standard_summary in grouped list since it's the default
-        if(rec.id==='standard_summary')return;
-        const badge=rec.is_builtin?' (built-in)':' (custom)';
-        opts+=`<option value="${rec.id}">${esc(rec.name)}${badge}</option>`;
-      });
-      opts+='</optgroup>';
-    });
-    s.innerHTML=opts;
-    s.onchange=function(){
-      const desc=Q('#recipe-desc');
-      const sel=_recipes.find(r=>r.id===this.value);
-      desc.textContent=sel?sel.description:'Comprehensive meeting summary with action items, decisions, and topics';
-    };
-    // Trigger initial description
-    Q('#recipe-desc').textContent='Comprehensive meeting summary with action items, decisions, and topics';
+    _recipes=r.ok?await r.json():[];
   }catch(e){
     console.error('Failed to load recipes:',e);
-    Q('#recipe').innerHTML='<option value="">Standard Summary (default)</option>';
+    _recipes=[];
   }
+}
+
+function recipeOptionsHtml(selected){
+  const sel=selected&&selected!=='standard_summary'?selected:'';
+  let opts=`<option value=""${sel===''?' selected':''}>Standard Summary</option>`;
+  const cats={};
+  _recipes.forEach(rec=>{
+    if(rec.id==='standard_summary')return;
+    if(!cats[rec.category])cats[rec.category]=[];
+    cats[rec.category].push(rec);
+  });
+  const catOrder=['general','sales','engineering','management','research','hiring','project'];
+  const catLabels={general:'General',sales:'Sales',engineering:'Engineering',management:'Management',research:'Research',hiring:'Hiring',project:'Project'};
+  const order=catOrder.concat(Object.keys(cats).filter(c=>!catOrder.includes(c)));
+  order.forEach(cat=>{
+    const items=cats[cat];
+    if(!items||!items.length)return;
+    opts+=`<optgroup label="${attr(catLabels[cat]||cat)}">`;
+    items.forEach(rec=>{
+      const badge=rec.is_builtin?'':' (custom)';
+      opts+=`<option value="${attr(rec.id)}"${rec.id===sel?' selected':''}>${esc(rec.name)}${badge}</option>`;
+    });
+    opts+='</optgroup>';
+  });
+  return opts;
+}
+
+// ===========================================================================
+// Settings
+// ===========================================================================
+function transcribeOptions(){
+  const lang=val('language');
+  return {
+    language:(lang===''||lang==='mixed')?null:lang,
+    multilingual:lang==='mixed',
+    denoise:Q('#denoise').checked,
+    model_size:'large-v3',
+  };
 }
 
 // ===========================================================================
 // Record
 // ===========================================================================
 async function toggle(){
-  if(ui==='idle'||ui==='done'||ui==='error'||ui==='stopped') await doStart();
-  else if(ui==='recording') await doStop();
+  if(_recActive) await doStop();
+  else await doStart();
 }
 
 async function doStart(){
-  const liveEnabled=Q('#live-transcription').checked;
+  const lang=val('language');
   const body={
     device:val('device')!==''?parseInt(val('device')):null,
-    language:val('language')||null,
-    skip_analysis:Q('#skip-analysis').checked,
-    live_transcription:liveEnabled,
-    recipe_id:val('recipe')||null,
-    denoise:Q('#denoise').checked,
+    language:(lang===''||lang==='mixed')?null:lang,
+    live_transcription:Q('#live-transcription').checked,
+    model_size:'large-v3',
   };
-  const r=await f('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){const d=await r.json();alert(d.error);return}
-  setUI('recording');
-  closeViewer();
-  recStart=Date.now();
-  tRef=setInterval(tick,100);
-  if(Q('#live-transcription').checked) startLiveStream();
+  const btn=Q('#rec-btn');
+  btn.disabled=true;
+  setRecStatus('Starting…',false);
+  const res=await postJson('/api/start',body);
+  btn.disabled=false;
+  if(!res.ok){
+    setRecStatus(res.error||'Could not start recording',true);
+    return;
+  }
+  hideRecAfter();
+  setRecUI(true);
+  _recStart=Date.now();
+  if(!_tRef) _tRef=setInterval(tick,100);
+  showLiveNote(res.data.live_note);
+  if(res.data.live) startLiveStream();
+  else Q('#live-panel').classList.remove('open');
+  loadSessions();
 }
-
-let _stoppedSessionId = null;
 
 async function doStop(){
-  // Always clean up local state first, regardless of server response.
-  // This prevents the UI from getting stuck if /api/stop fails.
-  clearInterval(tRef); tRef=null;
-  recStart=null;
-  Q('#timer').textContent='00:00';
-  setUI('idle');
-  Q('#stxt').textContent='Saved. Click the session in the sidebar to process it.';
-
-  let stoppedId=null;
-  try{
-    stopLiveStream();
-    const r=await f('/api/stop',{method:'POST'});
-    if(r.ok){
-      const d=await r.json();
-      _stoppedSessionId=d.session_id||null;
-      stoppedId=d.session_id||null;
-    }else{
-      console.warn('Stop returned',r.status,'— audio file should still be saved');
-    }
-  }catch(e){
-    console.warn('Stop request failed:',e,'— audio file should still be saved');
+  clearInterval(_tRef); _tRef=null; _recStart=null;
+  stopLiveStream();
+  setRecUI(false,'Saved.');
+  showLiveNote(null);
+  const res=await postJson('/api/stop',{});
+  if(res.ok){
+    _recAfter={id:res.data.session_id};
+    showRecAfter();
+  }else{
+    setRecStatus(res.error||'Stop failed',true);
   }
   loadSessions();
+}
 
-  // Prompt user to name the recording
-  if(stoppedId){
-    setTimeout(()=>{
-      const name=prompt('Name this recording (leave empty to skip):','');
-      if(name&&name.trim()){
-        f(`/api/sessions/${stoppedId}/rename`,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({title:name.trim()})
-        }).then(()=>loadSessions()).catch(e=>console.warn('Name failed:',e));
-      }
-    },300);
+function setRecStatus(text,isErr){
+  const st=Q('#stxt');
+  st.textContent=text;
+  st.className='stxt'+(isErr?' err':'');
+}
+
+function setRecUI(active,text){
+  _recActive=active;
+  const btn=Q('#rec-btn'),ic=btn.querySelector('.bi'),lbl=Q('#rlbl');
+  btn.className='rec-btn '+(active?'recording':'idle');
+  // Only the device and live-transcription choices are locked while recording.
+  Q('#device').disabled=active;
+  Q('#live-transcription').disabled=active;
+  if(active){
+    ic.innerHTML='<div class="is"></div>';lbl.textContent='Stop';
+    setRecStatus('Recording…',false);
+  }else{
+    ic.innerHTML='<div class="ic"></div>';lbl.textContent='Record';
+    Q('#timer').textContent='00:00';
+    setRecStatus(text||'Ready',false);
   }
 }
 
-async function doProcess(){
-  if(!_stoppedSessionId)return;
-  const body={
-    language:val('language')||null,
-    model_size:'large-v3',
-    skip_analysis:Q('#skip-analysis').checked,
-    recipe_id:val('recipe')||null,
-    denoise:Q('#denoise').checked,
-  };
-  const r=await f(`/api/process/${_stoppedSessionId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){const d=await r.json();alert(d.error);return}
-  _stoppedSessionId=null;
-  setUI('processing');
+function showLiveNote(note){
+  const el=Q('#rec-note');
+  if(note){el.textContent=note;el.style.display='';}
+  else{el.textContent='';el.style.display='none';}
 }
 
-async function processSession(sessionId){
-  if(ui==='recording'||ui==='processing'){alert('Please wait for the current operation to finish.');return}
-  const body={
-    language:val('language')||null,
-    model_size:'large-v3',
-    skip_analysis:Q('#skip-analysis').checked,
-    recipe_id:val('recipe')||null,
-    denoise:Q('#denoise').checked,
-  };
-  const r=await f(`/api/process/${sessionId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){const d=await r.json();alert(d.error||'Process failed');return}
-  setUI('processing');
-  updateProcessingOverlay('denoising');
-}
-
-// ===========================================================================
-// UI state
-// ===========================================================================
-function setUI(state){
-  ui=state;
-  const btn=Q('#rec-btn'),ic=btn.querySelector('.bi'),lbl=Q('#rlbl'),st=Q('#stxt');
-  btn.className='rec-btn '+state;
-  const lock=state==='recording'||state==='processing';
-  Q('#device').disabled=lock;
-  Q('#language').disabled=lock;
-  Q('#denoise').disabled=lock;
-  Q('#skip-analysis').disabled=lock;
-  Q('#live-transcription').disabled=lock;
-  Q('#recipe').disabled=lock;
-  switch(state){
-    case 'idle':
-      ic.innerHTML='<div class="ic"></div>';lbl.textContent='Record';
-      st.textContent='Ready';st.className='stxt';break;
-    case 'recording':
-      ic.innerHTML='<div class="is"></div>';lbl.textContent='Stop';
-      st.textContent='Recording...';st.className='stxt';break;
-    case 'stopped':
-      ic.innerHTML='<div class="ic" style="background:#6366f1;border-radius:3px;width:0;height:0;border-style:solid;border-width:8px 0 8px 14px;border-color:transparent transparent transparent #fff"></div>';
-      lbl.textContent='Process';
-      st.textContent='Recording saved. Click Process to transcribe & analyze.';st.className='stxt';break;
-    case 'processing':
-      ic.innerHTML='<div class="ip"></div>';lbl.textContent='Wait';
-      st.textContent='Transcribing...';st.className='stxt';break;
-    case 'done':
-      ic.innerHTML='<div class="ic"></div>';lbl.textContent='New';
-      st.textContent='Complete';st.className='stxt';break;
-    case 'error':
-      ic.innerHTML='<div class="ic"></div>';lbl.textContent='Retry';
-      st.className='stxt err';break;
+function applyRecording(rec){
+  if(rec.active){
+    if(!_recActive){
+      setRecUI(true);
+      if(!_tRef) _tRef=setInterval(tick,100);
+      // Page was (re)loaded while recording: attach to live updates if they exist
+      if(rec.live&&!_evtSource) startLiveStream();
+    }
+    _recStart=Date.now()-(rec.elapsed||0)*1000;
+    showLiveNote(rec.live_note);
+  }else if(_recActive){
+    // Stopped elsewhere (another tab / CLI)
+    clearInterval(_tRef); _tRef=null; _recStart=null;
+    stopLiveStream();
+    setRecUI(false,'Saved.');
+    showLiveNote(null);
   }
+}
+
+// After-stop inline row -----------------------------------------------------
+function showRecAfter(){
+  Q('#rec-name').value='';
+  Q('#rec-queue-btn').disabled=false;
+  Q('#rec-after').style.display='flex';
+  setMsg('#rec-after-msg','');
+}
+function hideRecAfter(){
+  Q('#rec-after').style.display='none';
+  setMsg('#rec-after-msg','');
+  _recAfter=null;
+}
+async function saveRecName(){
+  if(!_recAfter)return;
+  const name=Q('#rec-name').value.trim();
+  if(!name){setMsg('#rec-after-msg','Enter a name first.','err');return}
+  const res=await postJson(`/api/sessions/${encodeURIComponent(_recAfter.id)}/rename`,{title:name});
+  if(!res.ok){setMsg('#rec-after-msg',res.error,'err');return}
+  setMsg('#rec-after-msg','Name saved.','ok');
+  loadSessions();
+}
+async function queueStoppedRecording(){
+  if(!_recAfter)return;
+  const btn=Q('#rec-queue-btn'); btn.disabled=true;
+  const res=await addToQueue(_recAfter.id);
+  if(res.ok){setMsg('#rec-after-msg','Queued. Run the queue when you’re ready.','ok');}
+  else{setMsg('#rec-after-msg',res.error,'err');btn.disabled=false;}
+}
+function openStoppedRecording(){
+  if(_recAfter) openSessionById(_recAfter.id);
+}
+
+// Queue helper used by recorder / import / viewer --------------------------
+async function addToQueue(sid,extra){
+  const body=Object.assign({session_id:sid},transcribeOptions(),extra||{});
+  const res=await postJson('/api/queue',body);
+  if(!res.ok) return {ok:false,error:res.error};
+  await poll();
+  loadSessions();
+  return {ok:true,job:res.data.job};
 }
 
 // ===========================================================================
 // Timer
 // ===========================================================================
 function tick(){
-  if(!recStart)return;
-  Q('#timer').textContent=fmtT((Date.now()-recStart)/1000);
+  if(!_recStart)return;
+  Q('#timer').textContent=fmtT((Date.now()-_recStart)/1000);
 }
 function fmtT(s){
+  s=Math.max(0,s||0);
   const h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=Math.floor(s%60);
   return h?`${pad(h)}:${pad(m)}:${pad(sec)}`:`${pad(m)}:${pad(sec)}`;
 }
@@ -1100,98 +1479,241 @@ function fmtDur(s){
 // Poll
 // ===========================================================================
 async function poll(){
+  let d;
   try{
-    const r=await f('/api/status');const d=await r.json();
-    if(d.status!==ui){
-      if(d.status==='done'){
-        setUI('done');
-        Q('#live-panel').classList.remove('open');
-        closeLiveStream();
-        // Build session object from state and open viewer
-        const sess={id:d.session_id,title:d.title||'',files:d.files,duration:0,language:''};
-        hideNewRecordingView();
-        openViewer(sess);
-        loadSessions();
-      }else if(d.status==='error'){
-        setUI('error');
-        Q('#stxt').textContent=d.error||'Something went wrong';
-      }else if(d.status==='stopped'&&ui!=='stopped'){
-        setUI('stopped');
-        _stoppedSessionId=d.session_id;
-      }else if(d.status==='processing'&&ui!=='processing'){
-        setUI('processing');
-      }else if(d.status==='recording'&&ui!=='recording'){
-        // Recover recording UI state if it got out of sync
-        setUI('recording');
-        if(d.elapsed){
-          recStart=Date.now()-(d.elapsed*1000);
-          if(!tRef) tRef=setInterval(tick,100);
-        }
+    const r=await f('/api/status');
+    if(!r.ok)return;
+    d=await r.json();
+  }catch(e){return}
+  _status=d;
+  try{applyRecording(d.recording||{})}catch(e){console.error(e)}
+  try{renderQueue(d)}catch(e){console.error(e)}
+  try{handleJobTransitions(d.jobs||[])}catch(e){console.error(e)}
+  try{
+    updateViewerChip();
+    if(viewerSession&&_viewerTab==='transcribe') renderTranscribeTab();
+  }catch(e){console.error(e)}
+}
+
+function handleJobTransitions(jobs){
+  const now={};
+  jobs.forEach(j=>{now[j.id]={status:j.status,session_id:j.session_id,kind:j.kind}});
+  const prev=_lastJobs;
+  _lastJobs=now;
+  if(!prev)return;
+  const changed=new Set(), trans=[];
+  new Set(Object.keys(prev).concat(Object.keys(now))).forEach(id=>{
+    const a=prev[id], b=now[id];
+    if((a&&a.status)!==(b&&b.status)){
+      const ref=b||a;
+      changed.add(ref.session_id);
+      trans.push({id,kind:ref.kind,session_id:ref.session_id,from:a?a.status:null,to:b?b.status:null});
+    }
+  });
+  if(!changed.size)return;
+  loadSessions();
+  if(viewerSession&&changed.has(viewerSession.id)){
+    onViewedSessionTransitions(trans.filter(t=>t.session_id===viewerSession.id));
+  }
+  const mv=Q('#memory-view');
+  if(mv&&mv.style.display!=='none'&&trans.some(t=>t.kind==='memory'&&t.to==='done')){
+    mvLoadRecent(); mvLoadTodos();
+  }
+}
+
+async function onViewedSessionTransitions(trans){
+  const tab=_viewerTab, sid=viewerSession.id;
+  for(const t of trans){
+    if(t.kind==='transcribe'){
+      if(t.to==='done'){await refreshViewer('transcript');return}
+      if(tab==='transcribe') renderTranscribeTab();
+    }else if(t.kind==='analyze'){
+      if(t.to==='done'){
+        const s=await fetchSession(sid);
+        if(!s||viewerSession?.id!==sid)return;
+        viewerSession=s; renderViewerFrame(s);
+        if(tab==='analysis') loadAnalysisTab();
+        return;
+      }
+      if(tab==='analysis'){
+        const j=latestJob(sid,'analyze');
+        const el=Q('#an-job-status'); if(el) el.innerHTML=analyzeStatusHtml(j);
+        const b=Q('#an-btn'); if(b) b.disabled=isActiveJob(j);
+      }
+    }else if(t.kind==='memory'){
+      if(t.to==='done'){
+        const s=await fetchSession(sid);
+        if(!s||viewerSession?.id!==sid)return;
+        viewerSession=s; renderViewerFrame(s);
+        if(tab==='memory') loadMemoryTab();
+        return;
+      }
+      if(tab==='memory'){
+        const j=latestJob(sid,'memory');
+        const el=Q('#mem-job-status'); if(el) el.innerHTML=memoryStatusHtml(j);
+        const b=Q('#mem-btn'); if(b) b.disabled=isActiveJob(j);
       }
     }
-    if(d.status==='processing'&&d.step){
-      const map={denoising:'Reducing noise...',transcribing:'Transcribing audio...',diarizing:'Identifying speakers...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
-      Q('#stxt').textContent=map[d.step]||'Processing...';
-      // Sync import progress with actual pipeline step
-      const importProg=Q('#import-progress');
-      if(importProg&&importProg.classList.contains('show')){
-        importProg.textContent=map[d.step]||'Processing...';
-      }
-      // Only show processing overlay if the viewer is showing the session being processed
-      if(viewerSession && viewerSession.id === d.session_id){
-        updateProcessingOverlay(d.step);
-      }else{
-        hideProcessingOverlay();
-      }
-    }
-    if(d.status==='done'||d.status==='idle'||d.status==='error'||d.status==='stopped'){
-      hideProcessingOverlay();
-    }
-    // Better import error feedback
-    if(d.status==='error'){
-      const importProg=Q('#import-progress');
-      if(importProg&&importProg.classList.contains('show')){
-        importProg.textContent='Error: '+(d.error||'Something went wrong');
-        importProg.style.color='#ef4444';
-      }
-    }
-  }catch(e){}
+  }
 }
 
 // ===========================================================================
-// Processing Overlay
+// Processing queue card
+// ===========================================================================
+let _lastRunActive=false;
+function renderQueue(d){
+  const jobs=d.jobs||[], run=d.run||{active:false};
+  let st='Idle';
+  if(run.active){
+    if(run.stopping){
+      st='Stopping after the current segment…';
+    }else{
+      const cur=jobs.find(j=>j.id===run.current_job_id);
+      const n=Math.min((run.completed||0)+1,run.total||1);
+      st=`Running ${n} of ${run.total||1}`;
+      if(cur) st+=` — ${esc(cur.title||cur.session_id)} · ${esc(stageText(cur)||'Starting')}`;
+    }
+  }
+  const stEl=Q('#q-status');
+  if(stEl.innerHTML!==st) stEl.innerHTML=st;
+  if(_lastRunActive&&!run.active) queueMsg('');  // drop the transient "Stopping…" note once the run has ended
+  _lastRunActive=!!run.active;
+  Q('#q-stop').style.display=run.active?'':'none';
+  Q('#q-run').disabled=!!run.active;
+
+  const queuedT=new Set(jobs.filter(j=>j.status==='queued'&&j.kind==='transcribe').map(j=>j.id));
+  Array.from(_queueSel).forEach(id=>{if(!queuedT.has(id))_queueSel.delete(id)});
+  Q('#q-run-sel').disabled=!_queueSel.size||!!run.active;
+
+  const list=Q('#q-list');
+  const html=jobs.length
+    ?jobs.map(jobRowHtml).join('')
+    :'<div class="empty">Nothing queued. Stop a recording or import audio, then add it here.</div>';
+  if(html!==_lastQueueHtml){list.innerHTML=html;_lastQueueHtml=html;}
+}
+
+function statusChipHtml(j){
+  return `<span class="chip ${attr(j.status)}">${j.status==='running'?'<span class="spin-sm"></span>':''}${esc(STATUS_LABELS[j.status]||j.status)}</span>`;
+}
+
+function jobRowHtml(j){
+  const canCheck=j.status==='queued'&&j.kind==='transcribe';
+  const err=(j.status==='failed'||j.status==='interrupted')&&j.error?`<div class="q-err">${esc(j.error)}</div>`:'';
+  const acts=[];
+  if(j.status!=='running') acts.push(`<button class="btn sm" onclick="removeJob('${attr(j.id)}')">Remove</button>`);
+  if(j.status==='failed'||j.status==='interrupted') acts.push(`<button class="btn primary sm" onclick="retryJob('${attr(j.id)}')">Retry</button>`);
+  if(j.status==='queued') acts.push(`<button class="btn primary sm" onclick="runJobNow('${attr(j.id)}')">Run now</button>`);
+  const stage=stageText(j);
+  return `<div class="q-row ${attr(j.status)}" data-id="${attr(j.id)}">
+    <div class="q-check">${canCheck?`<input type="checkbox"${_queueSel.has(j.id)?' checked':''} onchange="toggleQueueSel('${attr(j.id)}',this.checked)">`:''}</div>
+    <div class="q-main">
+      <div class="q-line">
+        <a class="q-title" href="#" onclick="event.preventDefault();openSessionById('${attr(j.session_id)}')">${esc(j.title||j.session_id)}</a>
+        <span class="pill ${attr(j.kind)}">${esc(KIND_LABELS[j.kind]||j.kind)}</span>
+        ${statusChipHtml(j)}
+        ${stage?`<span class="q-stage">${esc(stage)}</span>`:''}
+        <span class="q-time" title="${attr(j.created_at||'')}">${esc(fmtClock(j.created_at))}</span>
+      </div>
+      ${err}
+    </div>
+    <div class="q-btns">${acts.join('')}</div>
+  </div>`;
+}
+
+function toggleQueueSel(id,checked){
+  if(checked)_queueSel.add(id);else _queueSel.delete(id);
+  const run=(_status&&_status.run)||{};
+  Q('#q-run-sel').disabled=!_queueSel.size||!!run.active;
+}
+
+let _qMsgT=null;
+function queueMsg(text,cls){
+  setMsg('#q-msg',text,cls);
+  clearTimeout(_qMsgT);
+  if(text) _qMsgT=setTimeout(()=>setMsg('#q-msg',''),8000);
+}
+
+async function runQueued(){
+  const res=await postJson('/api/queue/run',{});
+  queueMsg(res.ok?'':res.error,'err');
+  poll();
+}
+async function runSelected(){
+  const ids=Array.from(_queueSel);
+  if(!ids.length)return;
+  const res=await postJson('/api/queue/run',{job_ids:ids});
+  if(res.ok){_queueSel.clear();queueMsg('');}
+  else queueMsg(res.error,'err');
+  poll();
+}
+async function stopRun(){
+  const res=await postJson('/api/queue/stop',{});
+  queueMsg(res.ok?'Stopping after the current segment…':res.error,res.ok?'':'err');
+  poll();
+}
+async function clearFinished(){
+  const res=await postJson('/api/queue/clear-finished',{statuses:['done']});
+  queueMsg(res.ok?'':res.error,'err');
+  poll();
+}
+async function removeJob(id){
+  let res;
+  try{
+    const r=await f(`/api/queue/${encodeURIComponent(id)}`,{method:'DELETE'});
+    let d={};try{d=await r.json()}catch(e){}
+    res={ok:r.ok,error:r.ok?'':(d.error||('Request failed ('+r.status+')'))};
+  }catch(e){res={ok:false,error:'Network error: '+e.message}}
+  if(!res.ok){queueMsg(res.error,'err');toast(res.error);}
+  await poll();
+}
+async function retryJob(id){
+  const res=await postJson(`/api/queue/${encodeURIComponent(id)}/retry`,{});
+  if(!res.ok){queueMsg(res.error,'err');toast(res.error);}
+  await poll();
+}
+async function runJobNow(id){
+  const res=await postJson(`/api/queue/${encodeURIComponent(id)}/run`,{});
+  if(!res.ok){queueMsg(res.error,'err');toast(res.error);}
+  await poll();
+  return res;
+}
+
+// ===========================================================================
+// Processing Overlay (used by the viewer's Transcribe tab for THIS session)
 // ===========================================================================
 const _procSteps = [
   {key:'denoising', label:'Reducing noise'},
   {key:'transcribing', label:'Transcribing audio'},
   {key:'diarizing', label:'Identifying speakers'},
-  {key:'titling', label:'Generating title'},
-  {key:'analyzing', label:'Analyzing with Claude'},
+  {key:'saving', label:'Saving'},
 ];
+const _procBands={starting:[0,3],denoising:[3,10],transcribing:[10,85],diarizing:[85,95],saving:[95,99]};
 
-function updateProcessingOverlay(currentStep){
+function updateProcessingOverlay(job){
   const overlay=Q('#processing-overlay');
   if(!overlay)return;
   overlay.classList.add('active');
   Q('#content').style.display='none';
 
-  const stepLabel=Q('#proc-step');
-  const map={denoising:'Reducing noise...',transcribing:'Transcribing audio...',diarizing:'Identifying speakers...',titling:'Generating title...',analyzing:'Analyzing with Claude...'};
-  stepLabel.textContent=map[currentStep]||'Processing...';
+  const stage=job.stage||'starting';
+  const p=job.progress||{};
+  let label=(STAGE_LABELS[stage]||'Processing')+'…';
+  let frac=0.5;
+  if(stage==='transcribing'&&p.duration_seconds){
+    frac=Math.min(1,(p.position_seconds||0)/p.duration_seconds);
+    label+=' '+fmtT(p.position_seconds||0)+' / '+fmtT(p.duration_seconds);
+  }
+  Q('#proc-step').textContent=label;
+  const band=_procBands[stage]||[0,5];
+  const pct=Math.round(band[0]+(band[1]-band[0])*frac);
+  Q('#proc-bar').style.width=pct+'%';
+  Q('#proc-pct').textContent=pct+'%';
 
-  // Calculate progress percentage
-  const idx=_procSteps.findIndex(s=>s.key===currentStep);
-  const total=_procSteps.length;
-  const pct=idx>=0?Math.round(((idx)/total)*100+Math.round(100/total/2)):0;
-  Q('#proc-bar').style.width=Math.min(pct,95)+'%';
-  Q('#proc-pct').textContent=Math.min(pct,95)+'%';
-
-  let found=false;
+  const idx=_procSteps.findIndex(s=>s.key===stage);
   let html='';
-  _procSteps.forEach(s=>{
+  _procSteps.forEach((s,i)=>{
     let cls='pending';
-    if(s.key===currentStep){cls='active';found=true}
-    else if(!found){cls='done'}
+    if(idx>=0){ if(i<idx)cls='done'; else if(i===idx)cls='active'; }
     html+=`<div class="ps-item ${cls}"><span class="ps-icon"></span>${s.label}</div>`;
   });
   Q('#proc-steps').innerHTML=html;
@@ -1200,108 +1722,155 @@ function updateProcessingOverlay(currentStep){
 function hideProcessingOverlay(){
   const overlay=Q('#processing-overlay');
   if(!overlay)return;
-  if(overlay.classList.contains('active')){
-    // Flash 100% briefly before hiding
-    Q('#proc-bar').style.width='100%';
-    Q('#proc-pct').textContent='100%';
-    Q('#proc-step').textContent='Complete';
-    setTimeout(()=>{
-      overlay.classList.remove('active');
-      Q('#content').style.display='';
-    },600);
-  }
+  overlay.classList.remove('active');
+  Q('#content').style.display='';
 }
 
 // ===========================================================================
 // Viewer
 // ===========================================================================
-function openViewer(sess){
+function openViewer(sess,tab){
   viewerSession=sess;
-  // Hide any leftover processing overlay from a previously viewed (in-progress) session
-  const overlay=Q('#processing-overlay');
-  if(overlay){
-    overlay.classList.remove('active');
-    Q('#content').style.display='';
-  }
-  const v=Q('#viewer');
-  const titleEl=Q('#v-title');
-  titleEl.innerHTML=esc(sess.title||sess.id)+
-    ' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">\u270E</button>';
-  titleEl.title='Double-click to rename';
-  titleEl.ondblclick=function(e){
-    // Only trigger on title text, not the button
-    if(e.target.tagName!=='BUTTON') startRename(this,sess);
-  };
+  _sessionsCache[sess.id]=sess;
+  hideProcessingOverlay();
+  Q('#content').dataset.txKey='';
+  renderViewerFrame(sess);
+  Q('#viewer').classList.add('open');
 
-  // Meta line
-  const parts=sess.id.split('_');
-  const dateStr=parts[0]+' '+(parts[1]||'').replace(/-/g,':');
-  let meta=`<span>${dateStr}</span>`;
-  if(sess.duration) meta+=`<span>${fmtDur(sess.duration)}</span>`;
-  if(sess.language) meta+=`<span>${sess.language.toUpperCase()}</span>`;
-  if(sess.recipe_id){
-    const rec=_recipes.find(r=>r.id===sess.recipe_id);
-    const recName=rec?rec.name:sess.recipe_id;
-    meta+=`<span class="v-recipe">${esc(recName)}</span>`;
-  }
-  Q('#v-meta').innerHTML=meta;
-
-  // Tabs
   const files=sess.files||{};
-  let tabs='';
-  if(files.audio && !files.transcript) tabs+=`<button class="tab on" onclick="switchTab(this,'process')">Process</button>`;
-  if(files.transcript) tabs+=`<button class="tab on" onclick="switchTab(this,'transcript')">Transcript</button>`;
-  if(files.analysis) tabs+=`<button class="tab" onclick="switchTab(this,'analysis')">Analysis</button>`;
-  if(files.audio) tabs+=`<button class="tab" onclick="switchTab(this,'audio')">Audio</button>`;
-  if(files.transcript) tabs+=`<button class="tab" onclick="switchTab(this,'chat')">Chat</button>`;
-  tabs+=`<button class="tab" onclick="switchTab(this,'analytics')">Analytics</button>`;
-  Q('#tabs').innerHTML=tabs;
+  const first=tab||(files.transcript?'transcript':files.audio?'transcribe':files.analysis?'analysis':'transcribe');
+  activateTab(first);
 
-  // Downloads
-  let dl='';
-  if(files.transcript) dl+=`<a class="dl-btn" href="/api/download/${files.transcript}" download>${DL_ICON} Transcript</a>`;
-  if(files.analysis) dl+=`<a class="dl-btn" href="/api/download/${files.analysis}" download>${DL_ICON} Analysis</a>`;
-  if(files.audio) dl+=`<a class="dl-btn" href="/api/download/${files.audio}" download>${DL_ICON} Audio</a>`;
-  Q('#dl-row').innerHTML=dl;
-
-  // Export buttons (F6)
-  let exp='<div class="export-dropdown">';
-  exp+=`<button class="export-btn" onclick="toggleExportMenu()">${EXPORT_ICON} Export As...</button>`;
-  exp+='<div class="export-menu" id="export-menu">';
-  exp+=`<a href="/api/export/${sess.id}?format=docx" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">DOCX</span> Word Document</a>`;
-  exp+=`<a href="/api/export/${sess.id}?format=pdf" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">PDF</span> PDF Document</a>`;
-  exp+=`<a href="/api/export/${sess.id}?format=srt" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">SRT</span> Subtitles</a>`;
-  exp+=`<a href="/api/export/${sess.id}?format=json" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">JSON</span> Structured Data</a>`;
-  exp+='</div></div>';
-  // Re-analyze button
-  if(files.transcript){
-    exp+=` <div class="export-dropdown"><button class="export-btn" onclick="toggleReanalyzeMenu()">\u21BB Re-analyze...</button>`;
-    exp+='<div class="export-menu" id="reanalyze-menu">';
-    exp+='<a href="#" onclick="event.preventDefault();doReanalyze(\'\')">Standard Summary</a>';
-    _recipes.forEach(rec=>{
-      if(rec.id==='standard_summary')return;
-      exp+=`<a href="#" onclick="event.preventDefault();doReanalyze('${esc(rec.id)}')">${esc(rec.name)}</a>`;
-    });
-    exp+='</div></div>';
-  }
-  Q('#export-row').innerHTML=exp;
-
-  v.classList.add('open');
-
-  // Load first tab
-  if(files.audio && !files.transcript) loadTab('process');
-  else if(files.transcript) loadTab('transcript');
-  else if(files.analysis) loadTab('analysis');
-  else if(files.audio) loadTab('audio');
-
-  // Highlight in list
   document.querySelectorAll('.sitem').forEach(el=>{
     el.classList.toggle('active',el.dataset.id===sess.id);
   });
 }
 
+function titleHtml(title){
+  return esc(title)+' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">✎</button>';
+}
+
+function renderViewerFrame(sess){
+  const titleEl=Q('#v-title');
+  titleEl.innerHTML=titleHtml(sess.title||sess.id);
+  titleEl.title='Double-click to rename';
+  titleEl.ondblclick=function(e){
+    if(e.target.tagName!=='BUTTON') startRename(this,viewerSession);
+  };
+
+  // Meta line
+  let meta=`<span>${esc(sessionDate(sess.id))}</span>`;
+  if(sess.duration) meta+=`<span>${esc(fmtDur(sess.duration))}</span>`;
+  if(sess.language) meta+=`<span>${esc(String(sess.language).toUpperCase())}</span>`;
+  if(sess.recipe_id){
+    const rec=_recipes.find(r=>r.id===sess.recipe_id);
+    meta+=`<span class="v-recipe">${esc(rec?rec.name:sess.recipe_id)}</span>`;
+  }
+  meta+='<span id="v-job-chip"></span>';
+  Q('#v-meta').innerHTML=meta;
+  updateViewerChip();
+
+  // Tabs
+  const files=sess.files||{};
+  const tabBtn=(name,label)=>`<button class="tab${_viewerTab===name?' on':''}" data-tab="${name}" onclick="switchTab(this,'${name}')">${label}</button>`;
+  let tabs='';
+  if(!files.transcript) tabs+=tabBtn('transcribe','Transcribe');
+  if(files.transcript){
+    tabs+=tabBtn('transcript','Transcript');
+    tabs+=tabBtn('analysis','Analysis');
+    tabs+=tabBtn('memory','Memory');
+  }
+  if(files.audio) tabs+=tabBtn('audio','Audio');
+  if(files.transcript) tabs+=tabBtn('chat','Chat');
+  tabs+=tabBtn('analytics','Analytics');
+  Q('#tabs').innerHTML=tabs;
+
+  // Downloads
+  let dl='';
+  if(files.transcript) dl+=`<a class="dl-btn" href="/api/download/${attr(files.transcript)}" download>${DL_ICON} Transcript</a>`;
+  if(files.analysis) dl+=`<a class="dl-btn" href="/api/download/${attr(files.analysis)}" download>${DL_ICON} Analysis</a>`;
+  if(files.memory) dl+=`<a class="dl-btn" href="/api/download/${attr(files.memory)}" download>${DL_ICON} Memory</a>`;
+  if(files.audio) dl+=`<a class="dl-btn" href="/api/download/${attr(files.audio)}" download>${DL_ICON} Audio</a>`;
+  Q('#dl-row').innerHTML=dl;
+
+  // Export buttons (F6) + Re-transcribe
+  let exp='';
+  if(files.transcript){
+    exp+='<div class="export-dropdown">';
+    exp+=`<button class="export-btn" onclick="toggleExportMenu()">${EXPORT_ICON} Export As...</button>`;
+    exp+='<div class="export-menu" id="export-menu">';
+    exp+=`<a href="/api/export/${attr(sess.id)}?format=docx" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">DOCX</span> Word Document</a>`;
+    exp+=`<a href="/api/export/${attr(sess.id)}?format=pdf" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">PDF</span> PDF Document</a>`;
+    exp+=`<a href="/api/export/${attr(sess.id)}?format=srt" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">SRT</span> Subtitles</a>`;
+    exp+=`<a href="/api/export/${attr(sess.id)}?format=json" download onclick="Q('#export-menu').classList.remove('open')"><span class="efmt">JSON</span> Structured Data</a>`;
+    exp+='</div></div>';
+  }
+  if(files.transcript&&files.audio){
+    exp+=` <button class="export-btn" id="retr-btn" onclick="retranscribeClick(this)">↻ Re-transcribe</button><span class="msg" id="retr-msg" style="margin:0;align-self:center"></span>`;
+  }
+  Q('#export-row').innerHTML=exp;
+}
+
+function viewerChipJob(sid){
+  const rank={running:0,queued:1,failed:2,interrupted:2};
+  let best=null;
+  ((_status&&_status.jobs)||[]).forEach(j=>{
+    if(j.session_id!==sid||!(j.status in rank))return;
+    if(!best||rank[j.status]<rank[best.status]) best=j;
+  });
+  return best;
+}
+function viewerChipText(j){
+  const k=KIND_LABELS[j.kind]||j.kind;
+  if(j.status==='running') return j.kind==='transcribe'?'Transcribing…':j.kind==='analyze'?'Analyzing…':'Updating memory…';
+  if(j.status==='queued') return 'Queued · '+k;
+  if(j.status==='failed') return 'Failed · '+k;
+  if(j.status==='interrupted') return 'Interrupted · '+k;
+  return '';
+}
+function updateViewerChip(){
+  const el=Q('#v-job-chip');
+  if(!el||!viewerSession)return;
+  const rec=(_status&&_status.recording)||{};
+  let html='';
+  if(rec.active&&rec.session_id===viewerSession.id){
+    html='<span class="chip rec"><span class="rec-dot"></span>REC</span>';
+  }else{
+    const j=viewerChipJob(viewerSession.id);
+    if(j) html=`<span class="chip ${attr(j.status)}">${j.status==='running'?'<span class="spin-sm"></span>':''}${esc(viewerChipText(j))}</span>`;
+  }
+  if(el.innerHTML!==html) el.innerHTML=html;
+}
+
+async function fetchSession(id){
+  try{
+    const r=await f('/api/sessions?limit=500');
+    const data=await r.json();
+    (data.sessions||[]).forEach(s=>{_sessionsCache[s.id]=s});
+    return _sessionsCache[id]||null;
+  }catch(e){
+    console.error('Could not load session:',e);
+    return null;
+  }
+}
+
+async function refreshViewer(tab){
+  const sid=viewerSession?.id;
+  if(!sid)return;
+  const s=await fetchSession(sid);
+  if(!s||viewerSession?.id!==sid)return;
+  openViewer(s,tab||_viewerTab||undefined);
+}
+
+async function openSessionById(id){
+  const s=_sessionsCache[id]||await fetchSession(id);
+  if(s) viewSess(s);
+  else toast('Meeting not found: '+id);
+}
+
 function toggleExportMenu(){
   const m=Q('#export-menu');
+  if(!m)return;
   m.classList.toggle('open');
   // Close when clicking outside
   if(m.classList.contains('open')){
@@ -1317,37 +1886,30 @@ function toggleExportMenu(){
   }
 }
 
-function toggleReanalyzeMenu(){
-  const m=Q('#reanalyze-menu');
-  if(!m)return;
-  m.classList.toggle('open');
-  if(m.classList.contains('open')){
-    setTimeout(()=>{
-      const close=e=>{
-        if(!m.contains(e.target)&&!e.target.closest('.export-btn')){
-          m.classList.remove('open');
-          document.removeEventListener('click',close);
-        }
-      };
-      document.addEventListener('click',close);
-    },0);
+// Re-transcribe: two-click confirm ------------------------------------------
+function retranscribeClick(btn){
+  if(btn.dataset.armed!=='1'){
+    btn.dataset.armed='1';
+    btn.textContent='Confirm re-transcribe';
+    btn.classList.add('armed');
+    setMsg('#retr-msg','');
+    btn._disarm=setTimeout(()=>disarmRetranscribe(btn),8000);
+    return;
   }
+  disarmRetranscribe(btn);
+  doRetranscribe();
 }
-
-async function doReanalyze(recipeId){
-  const m=Q('#reanalyze-menu');
-  if(m) m.classList.remove('open');
+function disarmRetranscribe(btn){
+  clearTimeout(btn._disarm);
+  btn.dataset.armed='0';
+  btn.textContent='↻ Re-transcribe';
+  btn.classList.remove('armed');
+}
+async function doRetranscribe(){
   if(!viewerSession?.id)return;
-  if(ui==='recording'||ui==='processing'){alert('Please wait for the current operation to finish.');return}
-  try{
-    const r=await f(`/api/reanalyze/${viewerSession.id}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({recipe_id:recipeId||null})
-    });
-    if(!r.ok){const d=await r.json();alert(d.error||'Re-analyze failed');return}
-    setUI('processing');
-    // polling will pick up processing state and reopen viewer when done
-  }catch(e){alert('Re-analyze failed: '+e.message)}
+  const res=await addToQueue(viewerSession.id,{overwrite:true,fresh:true});
+  if(res.ok) setMsg('#retr-msg','Queued','ok');
+  else setMsg('#retr-msg',res.error,'err');
 }
 
 function closeViewer(){
@@ -1357,12 +1919,19 @@ function closeViewer(){
     _transcriptAudio.pause();
     _transcriptAudio = null;
   }
+  hideProcessingOverlay();
   Q('#export-row').innerHTML='';
   Q('#viewer').classList.remove('open');
-  Q('#live-panel').classList.remove('open');
-  closeLiveStream();
   viewerSession=null;
+  _viewerTab=null;
+  _memRecord=null;
   document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
+}
+
+function activateTab(name){
+  const btn=Q('#tabs').querySelector(`.tab[data-tab="${name}"]`);
+  if(btn) switchTab(btn,name);
+  else loadTab(name);
 }
 
 function switchTab(btn,tab){
@@ -1386,20 +1955,12 @@ function switchTab(btn,tab){
 async function loadTab(tab){
   const c=Q('#content');
   const files=viewerSession?.files||{};
+  _viewerTab=tab;
+  if(tab!=='transcribe'){hideProcessingOverlay();c.dataset.txKey='';}
 
-  if(tab==='process'){
-    const sid=viewerSession?.id||'';
-    c.innerHTML=`
-      <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:32px;margin-bottom:12px">&#x1F3A4;</div>
-        <div style="font-size:15px;font-weight:600;color:#1e293b;margin-bottom:6px">Audio recorded — not yet processed</div>
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:20px">Click below to transcribe and analyze this recording</div>
-        <button onclick="processSession('${sid}')" style="padding:10px 28px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s">
-          Transcribe &amp; Analyze
-        </button>
-      </div>`;
-    return;
-  }
+  if(tab==='transcribe'){renderTranscribeTab();return}
+  if(tab==='analysis'){await loadAnalysisTab();return}
+  if(tab==='memory'){await loadMemoryTab();return}
 
   if(tab==='chat'){
     loadChatTab(viewerSession);
@@ -1417,7 +1978,7 @@ async function loadTab(tab){
     return;
   }
 
-  const fname=tab==='transcript'?files.transcript:files.analysis;
+  const fname=files.transcript;
   if(!fname){c.innerHTML='<p class="empty">Not available</p>';return}
 
   c.innerHTML='<p style="color:#94a3b8">Loading...</p>';
@@ -1425,17 +1986,17 @@ async function loadTab(tab){
     const r=await f(`/api/view/${fname}`);
     const md=await r.text();
     let legendHtml = '';
-    if (tab === 'transcript' && viewerSession?.id) {
+    if (viewerSession?.id) {
       legendHtml = await loadSpeakerLegend(viewerSession.id);
     }
     // F5: Embed audio player at top of transcript tab
     let audioBarHtml = '';
-    if (tab === 'transcript' && viewerSession?.files?.audio) {
+    if (viewerSession?.files?.audio) {
       audioBarHtml = '<div class="transcript-audio-bar"><div id="transcript-wf-container"></div></div>';
     }
     c.innerHTML = audioBarHtml + legendHtml + renderMd(md);
     // Create waveform player for transcript and attach timeupdate for seek linkage
-    if (tab === 'transcript' && viewerSession?.files?.audio) {
+    if (viewerSession?.files?.audio) {
       const wfContainer = c.querySelector('#transcript-wf-container');
       createWaveformPlayer('/api/download/' + viewerSession.files.audio, wfContainer, {transcript:true}).then(audioEl => {
         if(audioEl){
@@ -1447,6 +2008,322 @@ async function loadTab(tab){
   }catch(e){
     c.innerHTML='<p class="empty">Failed to load</p>';
   }
+}
+
+// ---- Transcribe tab (no transcript yet) -------------------------------------
+function renderTranscribeTab(){
+  const c=Q('#content');
+  const sid=viewerSession?.id;
+  if(!sid)return;
+  const j=latestJob(sid,'transcribe');
+  if(j&&j.status==='running'){
+    updateProcessingOverlay(j);
+    c.dataset.txKey='running:'+j.id;
+    return;
+  }
+  hideProcessingOverlay();
+  const key=j?(j.id+':'+j.status):'none';
+  if(c.dataset.txKey===key)return;
+  c.dataset.txKey=key;
+  let html;
+  if(!j||j.status==='done'){
+    html=`<div class="tx-empty">
+      <div class="tx-icon">&#x1F3A4;</div>
+      <div class="tx-h">Audio saved, not transcribed yet</div>
+      <div class="tx-p">Add it to the processing queue, or transcribe it right away.</div>
+      <div class="tx-btns">
+        <button class="btn" onclick="viewerAddToQueue()">Add to queue</button>
+        <button class="btn primary" onclick="viewerTranscribeNow()">Transcribe now</button>
+      </div>
+      <div class="msg" id="tx-msg"></div>
+    </div>`;
+  }else if(j.status==='queued'){
+    html=`<div class="tx-empty">
+      <div class="tx-icon">&#x23F3;</div>
+      <div class="tx-h">Queued — run the queue from the home screen</div>
+      <div class="tx-p">Or start this one now.</div>
+      <div class="tx-btns">
+        <button class="btn primary" onclick="viewerRunNow('${attr(j.id)}')">Run now</button>
+        <button class="btn" onclick="removeJob('${attr(j.id)}')">Remove from queue</button>
+      </div>
+      <div class="msg" id="tx-msg"></div>
+    </div>`;
+  }else{
+    html=`<div class="tx-empty">
+      <div class="tx-h">${statusChipHtml(j)} Transcription ${esc(j.status)}</div>
+      <div class="q-err">${esc(j.error||'Unknown error')}</div>
+      <div class="tx-btns">
+        <button class="btn primary" onclick="retryJob('${attr(j.id)}')">Retry</button>
+        <button class="btn" onclick="removeJob('${attr(j.id)}')">Remove</button>
+      </div>
+      <div class="msg" id="tx-msg"></div>
+    </div>`;
+  }
+  c.innerHTML=html;
+}
+
+async function viewerAddToQueue(){
+  if(!viewerSession?.id)return;
+  const res=await addToQueue(viewerSession.id);
+  if(!res.ok) setMsg('#tx-msg',res.error,'err');
+}
+
+async function viewerTranscribeNow(){
+  if(!viewerSession?.id)return;
+  const sid=viewerSession.id;
+  let j=latestJob(sid,'transcribe');
+  if(!j||j.status!=='queued'){
+    const res=await addToQueue(sid);
+    if(!res.ok){setMsg('#tx-msg',res.error,'err');return}
+    j=res.job;
+  }
+  if(!j){setMsg('#tx-msg','Could not queue this meeting.','err');return}
+  const run=await postJson(`/api/queue/${encodeURIComponent(j.id)}/run`,{});
+  if(!run.ok){
+    await poll();
+    setMsg('#tx-msg',run.error,'err');
+    return;
+  }
+  await poll();
+}
+
+async function viewerRunNow(id){
+  const res=await runJobNow(id);
+  if(!res.ok) setMsg('#tx-msg',res.error,'err');
+}
+
+// ---- Analysis tab ------------------------------------------------------------
+function analyzeStatusHtml(j){
+  if(!j)return '';
+  if(j.status==='queued'||j.status==='running'){
+    return `<div class="job-inline running"><span class="spin-sm"></span> ${j.status==='queued'?'Waiting for Claude…':'Analyzing with Claude…'}</div>`;
+  }
+  if(j.status==='failed'||j.status==='interrupted'){
+    return `<div class="job-inline failed"><div>Analysis ${esc(j.status)}.</div><div class="q-err">${esc(j.error||'Unknown error')}</div><div><button class="btn primary sm" onclick="retryJob('${attr(j.id)}')">Retry</button> <button class="btn sm" onclick="removeJob('${attr(j.id)}')">Dismiss</button></div></div>`;
+  }
+  return '';
+}
+
+async function loadAnalysisTab(){
+  const c=Q('#content');
+  const sess=viewerSession;
+  if(!sess?.id)return;
+  const sid=sess.id;
+  const j=latestJob(sid,'analyze');
+  const top=`<div class="tab-actions">
+      <select id="an-recipe" class="recipe-select">${recipeOptionsHtml(sess.recipe_id)}</select>
+      <button class="btn primary" id="an-btn" onclick="viewerAnalyze()"${isActiveJob(j)?' disabled':''}>Analyze with Claude</button>
+    </div>
+    <div class="msg" id="an-msg"></div>
+    <div id="an-job-status">${analyzeStatusHtml(j)}</div>`;
+  c.innerHTML=top+'<p style="color:#94a3b8">Loading...</p>';
+  let body='';
+  if(sess.files?.analysis){
+    try{
+      const r=await f(`/api/view/${sess.files.analysis}`);
+      body=r.ok?renderMd(await r.text()):'<p class="empty">Failed to load</p>';
+    }catch(e){body='<p class="empty">Failed to load</p>'}
+  }else{
+    body='<p class="empty">No analysis yet.</p>';
+  }
+  if(_viewerTab!=='analysis'||viewerSession?.id!==sid)return;
+  c.innerHTML=top+'<div id="an-body">'+body+'</div>';
+}
+
+async function viewerAnalyze(){
+  if(!viewerSession?.id)return;
+  const sel=Q('#an-recipe');
+  const btn=Q('#an-btn'); if(btn) btn.disabled=true;
+  const res=await postJson(`/api/analyze/${encodeURIComponent(viewerSession.id)}`,{recipe_id:(sel&&sel.value)||null});
+  if(!res.ok){
+    setMsg('#an-msg',res.error,'err');
+    if(btn) btn.disabled=false;
+    return;
+  }
+  setMsg('#an-msg','');
+  const el=Q('#an-job-status'); if(el) el.innerHTML=analyzeStatusHtml(res.data.job||{status:'running'});
+  await poll();
+}
+
+// ---- Memory tab ---------------------------------------------------------------
+function memoryStatusHtml(j){
+  if(!j)return '';
+  if(j.status==='queued'||j.status==='running'){
+    return `<div class="job-inline running"><span class="spin-sm"></span> ${j.status==='queued'?'Waiting for Claude…':'Updating memory…'}</div>`;
+  }
+  if(j.status==='failed'||j.status==='interrupted'){
+    return `<div class="job-inline failed"><div>Memory update ${esc(j.status)}.</div><div class="q-err">${esc(j.error||'Unknown error')}</div><div><button class="btn primary sm" onclick="retryJob('${attr(j.id)}')">Retry</button> <button class="btn sm" onclick="removeJob('${attr(j.id)}')">Dismiss</button></div></div>`;
+  }
+  return '';
+}
+
+function tsSpan(ts){
+  if(!ts)return '';
+  const s=String(ts);
+  const ok=/^\d{1,3}:\d{2}(?::\d{2})?$/.test(s)&&!!(viewerSession?.files?.audio);
+  return ok
+    ?`<span class="ts clickable" data-ts="${attr(s)}" onclick="seekTo('${attr(s)}')">[${esc(s)}]</span>`
+    :`<span class="ts">[${esc(s)}]</span>`;
+}
+
+async function loadMemoryTab(){
+  const c=Q('#content');
+  const sess=viewerSession;
+  if(!sess?.id)return;
+  const sid=sess.id;
+  c.innerHTML='<p style="color:#94a3b8">Loading...</p>';
+  let r;
+  try{r=await f(`/api/memory/${encodeURIComponent(sid)}`)}
+  catch(e){c.innerHTML='<p class="empty">Could not load memory.</p>';return}
+  if(_viewerTab!=='memory'||viewerSession?.id!==sid)return;
+  const j=latestJob(sid,'memory');
+  if(r.status===404){
+    _memRecord=null;
+    c.innerHTML=`<div class="tx-empty">
+      <div class="tx-h">No memory yet.</div>
+      <div class="tx-p">Memory is a grounded summary with decisions, to-dos and open questions.</div>
+      <div class="tx-btns"><button class="btn primary" id="mem-btn" onclick="viewerGenerateMemory()"${isActiveJob(j)?' disabled':''}>Generate memory</button></div>
+      <div class="msg" id="mem-msg"></div>
+      <div id="mem-job-status" style="text-align:left">${memoryStatusHtml(j)}</div>
+    </div>`;
+    return;
+  }
+  if(!r.ok){
+    let d={};try{d=await r.json()}catch(e){}
+    c.innerHTML=`<p class="empty">Could not load memory: ${esc(d.error||('error '+r.status))}</p>`;
+    return;
+  }
+  const m=await r.json();
+  _memRecord=m;
+  c.innerHTML=renderMemory(m,j);
+  if(sess.files?.audio){
+    const wf=c.querySelector('#memory-wf-container');
+    if(wf) createWaveformPlayer('/api/download/'+sess.files.audio,wf).then(audioEl=>{if(audioEl)_transcriptAudio=audioEl});
+  }
+}
+
+function todoHtml(t){
+  const done=t.status==='done';
+  return `<div class="todo${done?' done':''}${t.stale?' stale':''}" data-id="${attr(t.id)}">
+    <input type="checkbox"${done?' checked':''} onchange="memToggleTask('${attr(t.id)}',this)">
+    <div class="todo-body">
+      <span class="todo-text">${esc(t.text)}</span>
+      ${t.owner?`<span class="owner-pill">${esc(t.owner)}</span>`:''}
+      ${t.deadline?`<span class="deadline-pill">${esc(t.deadline)}</span>`:''}
+      ${tsSpan(t.ts)}
+      ${t.verified===false?'<span class="marker">unverified</span>':''}
+      ${t.stale?'<span class="marker stale">not in latest update</span>':''}
+    </div>
+    <div class="todo-acts">
+      <button class="icon-btn" title="Edit" onclick="memEditTask('${attr(t.id)}')">✎</button>
+      <button class="icon-btn del" title="Delete" onclick="memDeleteTask('${attr(t.id)}')">&times;</button>
+    </div>
+  </div>`;
+}
+
+function renderMemory(m,j){
+  const sid=viewerSession.id;
+  const kps=m.key_points||[], decs=m.decisions||[], tasks=m.tasks||[], oqs=m.open_questions||[], notes=m.grounding_notes||[];
+  const memFile=(viewerSession.files&&viewerSession.files.memory)||(sid+'_memory.md');
+  let html='';
+  if(viewerSession.files?.audio) html+='<div class="transcript-audio-bar"><div id="memory-wf-container"></div></div>';
+  html+=`<div class="tab-actions">
+      <button class="btn primary" id="mem-btn" onclick="viewerGenerateMemory()"${isActiveJob(j)?' disabled':''}>Update memory</button>
+      <span class="helper-text" style="margin:0">Manual edits and completed to-dos are kept.</span>
+    </div>
+    <div class="msg" id="mem-msg"></div>
+    <div id="mem-job-status">${memoryStatusHtml(j)}</div>`;
+  html+=`<div class="mem-section"><h2>Summary</h2><p>${esc(m.summary||'')||'<span class="muted">No summary.</span>'}</p></div>`;
+  html+=`<div class="mem-section"><h2>Key points</h2>${kps.length?'<ul>'+kps.map(k=>`<li>${esc(k.text)} ${tsSpan(k.ts)}${k.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
+  html+=`<div class="mem-section"><h2>Decisions</h2>${decs.length?'<ul>'+decs.map(d=>`<li>${esc(d.text)}${d.rationale?` <span class="rationale">— ${esc(d.rationale)}</span>`:''} ${tsSpan(d.ts)}${d.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
+  html+=`<div class="mem-section"><h2>To-dos</h2>
+    <div id="mem-todos">${tasks.length?tasks.map(todoHtml).join(''):'<p class="muted">No to-dos.</p>'}</div>
+    <div class="todo-add">
+      <input class="t" id="todo-new-text" placeholder="New to-do" onkeydown="if(event.key==='Enter')memAddTask()">
+      <input class="o" id="todo-new-owner" placeholder="Owner">
+      <input class="d" id="todo-new-deadline" placeholder="Deadline">
+      <button class="btn primary sm" onclick="memAddTask()">Add to-do</button>
+    </div>
+    <div class="msg" id="todo-msg"></div>
+  </div>`;
+  html+=`<div class="mem-section"><h2>Open questions</h2>${oqs.length?'<ul>'+oqs.map(q=>`<li>${esc(q.text)} ${tsSpan(q.ts)}${q.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
+  html+=`<div class="mem-prov">
+    Generated ${esc(fmtDateTime(m.generated_at))} · update ${esc(String(m.generation_count||1))}${m.model?' · '+esc(m.model):''}
+    <details><summary>What was left out and why</summary>${notes.length?'<ul>'+notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul>':'<p class="muted">Nothing was left out.</p>'}</details>
+    <a class="dl-btn" href="/api/download/${attr(memFile)}" download>${DL_ICON} Download memory (.md)</a>
+  </div>`;
+  return html;
+}
+
+async function viewerGenerateMemory(){
+  if(!viewerSession?.id)return;
+  const btn=Q('#mem-btn'); if(btn) btn.disabled=true;
+  const res=await postJson(`/api/memory/${encodeURIComponent(viewerSession.id)}/generate`,{});
+  if(!res.ok){
+    setMsg('#mem-msg',res.error,'err');
+    if(btn) btn.disabled=false;
+    return;
+  }
+  setMsg('#mem-msg','');
+  const el=Q('#mem-job-status'); if(el) el.innerHTML=memoryStatusHtml(res.data.job||{status:'running'});
+  await poll();
+}
+
+async function memToggleTask(id,cb){
+  cb.disabled=true;
+  const res=await postJson(`/api/memory/tasks/${encodeURIComponent(id)}`,{status:cb.checked?'done':'open'},'PATCH');
+  cb.disabled=false;
+  if(!res.ok){cb.checked=!cb.checked;setMsg('#todo-msg',res.error,'err');return}
+  setMsg('#todo-msg','');
+  const row=cb.closest('.todo'); if(row) row.classList.toggle('done',cb.checked);
+  if(_memRecord){const t=(_memRecord.tasks||[]).find(x=>x.id===id); if(t) t.status=cb.checked?'done':'open';}
+}
+
+function memEditTask(id){
+  const t=_memRecord&&(_memRecord.tasks||[]).find(x=>x.id===id);
+  const row=Q(`#mem-todos .todo[data-id="${id}"]`);
+  if(!t||!row)return;
+  const body=row.querySelector('.todo-body');
+  body.innerHTML=`<div class="todo-edit">
+    <input class="t" value="${attr(t.text)}" placeholder="To-do" onkeydown="if(event.key==='Enter')memSaveTask('${attr(id)}');if(event.key==='Escape')loadMemoryTab()">
+    <input class="o" value="${attr(t.owner||'')}" placeholder="Owner">
+    <input class="d" value="${attr(t.deadline||'')}" placeholder="Deadline">
+    <button class="btn primary sm" onclick="memSaveTask('${attr(id)}')">Save</button>
+    <button class="btn sm" onclick="loadMemoryTab()">Cancel</button>
+  </div>`;
+  body.querySelector('input.t').focus();
+}
+
+async function memSaveTask(id){
+  const row=Q(`#mem-todos .todo[data-id="${id}"]`);
+  if(!row)return;
+  const text=row.querySelector('input.t').value.trim();
+  if(!text){setMsg('#todo-msg','The to-do text cannot be empty.','err');return}
+  const body={text,owner:row.querySelector('input.o').value.trim(),deadline:row.querySelector('input.d').value.trim()};
+  const res=await postJson(`/api/memory/tasks/${encodeURIComponent(id)}`,body,'PATCH');
+  if(!res.ok){setMsg('#todo-msg',res.error,'err');return}
+  loadMemoryTab();
+}
+
+async function memDeleteTask(id){
+  let ok=false, err='';
+  try{
+    const r=await f(`/api/memory/tasks/${encodeURIComponent(id)}`,{method:'DELETE'});
+    ok=r.ok;
+    if(!ok){let d={};try{d=await r.json()}catch(e){} err=d.error||('Request failed ('+r.status+')');}
+  }catch(e){err='Network error: '+e.message}
+  if(!ok){setMsg('#todo-msg',err,'err');return}
+  loadMemoryTab();
+}
+
+async function memAddTask(){
+  if(!viewerSession?.id)return;
+  const text=Q('#todo-new-text').value.trim();
+  if(!text){setMsg('#todo-msg','Type the to-do first.','err');return}
+  const body={session_id:viewerSession.id,text,owner:Q('#todo-new-owner').value.trim()||null,deadline:Q('#todo-new-deadline').value.trim()||null};
+  const res=await postJson('/api/memory/tasks',body);
+  if(!res.ok){setMsg('#todo-msg',res.error,'err');return}
+  loadMemoryTab();
 }
 
 // ===========================================================================
@@ -1988,31 +2865,45 @@ async function clearChat() {
 let _sessionOffset = 0;
 const _sessionLimit = 30;
 
+function sessionChipText(j){
+  if(j.status==='queued') return 'Queued';
+  if(j.status==='running') return j.kind==='transcribe'?'Transcribing…':j.kind==='analyze'?'Analyzing…':'Updating memory…';
+  if(j.status==='failed') return 'Failed';
+  if(j.status==='interrupted') return 'Interrupted';
+  return '';
+}
+
+function sessionItemHtml(s){
+  const files=s.files||{};
+  const title=s.title||s.id;
+  let badges='';
+  if(files.transcript) badges+='<span class="badge tr">T</span>';
+  if(files.analysis)   badges+='<span class="badge an">A</span>';
+  if(s.has_memory)     badges+='<span class="badge me">M</span>';
+  if(files.audio)      badges+='<span class="badge au">W</span>';
+  let chip='';
+  if(s.recording) chip='<span class="s-chip rec"><span class="rec-dot"></span>REC</span>';
+  else if(s.job&&s.job.status!=='done') chip=`<span class="s-chip ${attr(s.job.status)}">${esc(sessionChipText(s.job))}</span>`;
+  const sub=esc(sessionDate(s.id))+(s.duration?' &middot; '+esc(fmtDur(s.duration)):'')+(s.language?' &middot; '+esc(String(s.language).toUpperCase()):'');
+  return `<li class="sitem${viewerSession?.id===s.id?' active':''}" data-id="${attr(s.id)}" onclick="viewSessById('${attr(s.id)}')">
+    <div class="s-left"><div class="s-title">${esc(title)}</div><div class="s-date">${sub}${chip}</div></div>
+    <div class="s-badges">${badges}<button class="s-rename" onclick="event.stopPropagation();renameFromSidebar('${attr(s.id)}')" title="Rename">✎</button><button class="s-del" onclick="event.stopPropagation();deleteSession('${attr(s.id)}')" title="Delete">&times;</button></div>
+  </li>`;
+}
+
 async function loadSessions(append){
   try{
     if(!append) _sessionOffset=0;
     const r=await f(`/api/sessions?offset=${_sessionOffset}&limit=${_sessionLimit}`);
     const data=await r.json();
     const list=data.sessions||[];
+    list.forEach(s=>{_sessionsCache[s.id]=s});
     const ul=Q('#slist');
     if(!append && !list.length){ul.innerHTML='<li class="empty">No sessions yet</li>';return}
 
-    const html=list.map(s=>{
-      const parts=s.id.split('_');
-      const dateStr=parts[0]+'  '+(parts[1]||'').replace(/-/g,':');
-      const title=s.title||s.id;
-      let badges='';
-      if(s.files.transcript) badges+='<span class="badge tr">T</span>';
-      if(s.files.analysis)   badges+='<span class="badge an">A</span>';
-      if(s.files.audio)      badges+='<span class="badge au">W</span>';
-      return `<li class="sitem${viewerSession?.id===s.id?' active':''}" data-id="${s.id}" onclick='viewSess(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
-        <div class="s-left"><div class="s-title">${esc(title)}</div><div class="s-date">${dateStr}${s.duration?' &middot; '+fmtDur(s.duration):''}${s.language?' &middot; '+s.language.toUpperCase():''}</div></div>
-        <div class="s-badges">${badges}<button class="s-rename" onclick="event.stopPropagation();renameSessionPrompt('${s.id}','${esc(title).replace(/'/g,"&#39;")}')" title="Rename">\u270E</button><button class="s-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">&times;</button></div>
-      </li>`;
-    }).join('');
+    const html=list.map(sessionItemHtml).join('');
 
     if(append){
-      // Remove existing load-more button before appending
       const oldBtn=ul.querySelector('.load-more-li');
       if(oldBtn) oldBtn.remove();
       ul.insertAdjacentHTML('beforeend',html);
@@ -2022,7 +2913,6 @@ async function loadSessions(append){
 
     _sessionOffset+=list.length;
 
-    // Add "Load more" button if there are more sessions
     if(data.has_more){
       ul.insertAdjacentHTML('beforeend',
         `<li class="load-more-li" style="text-align:center;padding:10px">
@@ -2032,66 +2922,61 @@ async function loadSessions(append){
   }catch(e){console.error(e)}
 }
 
-async function renameSessionPrompt(id,currentTitle){
-  const decoded=document.createElement('div');decoded.innerHTML=currentTitle;
-  const name=prompt('Rename recording:',decoded.textContent);
-  if(!name||!name.trim())return;
-  try{
-    const r=await f(`/api/sessions/${id}/rename`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({title:name.trim()})
-    });
-    if(!r.ok){
-      const d=await r.json();
-      alert('Rename failed: '+(d.error||'unknown'));
-      return;
-    }
-    if(viewerSession?.id===id){
-      viewerSession.title=name.trim();
-      Q('#v-title').innerHTML=esc(name.trim())+
-        ' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">\u270E</button>';
-    }
-    loadSessions();
-  }catch(e){alert('Rename failed: '+e.message)}
+function renameFromSidebar(id){
+  const s=_sessionsCache[id];
+  if(!s){openSessionById(id);return}
+  viewSess(s);
+  startRename(Q('#v-title'),viewerSession);
 }
 
 async function deleteSession(id){
   if(!confirm('Delete this session and all its files?')) return;
   try{
     // Close viewer first so browser releases any audio/file handles
-    if(viewerSession?.id===id) closeViewer();
-    const r=await f(`/api/sessions/${id}`,{method:'DELETE'});
-    const data=await r.json();
+    if(viewerSession?.id===id) showNewRecordingView();
+    const r=await f(`/api/sessions/${encodeURIComponent(id)}`,{method:'DELETE'});
+    let data={};try{data=await r.json()}catch(e){}
     if(!r.ok){
-      alert('Delete failed: '+(data.error||'Unknown error'));
+      toast('Delete failed: '+(data.error||'Unknown error'));
       return;
     }
     if(data.errors && data.errors.length){
       console.warn('Some files could not be deleted:',data.errors);
-      alert('Some files could not be deleted:\n'+data.errors.map(e=>e.file+': '+e.error).join('\n'));
+      toast('Some files could not be deleted: '+data.errors.map(e=>e.file+': '+e.error).join('; '));
     }
-    console.log('Deleted files:',data.deleted);
+    delete _sessionsCache[id];
+    if(_recAfter&&_recAfter.id===id) hideRecAfter();
     loadSessions();
+    poll();
   }catch(e){
     console.error('Delete failed:',e);
-    alert('Delete failed: '+e.message);
+    toast('Delete failed: '+e.message);
   }
 }
 
+function viewSessById(id){
+  const s=_sessionsCache[id];
+  if(s) viewSess(s);
+  else openSessionById(id);
+}
+
 function viewSess(s){
-  // Hide the new recording view when opening a session
   hideNewRecordingView();
+  hideMemoryView();
   openViewer(s);
 }
 
+// ===========================================================================
+// Views: New Recording / Memory / Viewer
+// ===========================================================================
 function showNewRecordingView(){
   closeViewer();
+  hideMemoryView();
   const v=Q('#new-recording-view');
   if(v) v.style.display='';
   const w=Q('#webhooks-view-wrap');
   if(w) w.style.display='';
   Q('#new-rec-btn')?.classList.add('active');
-  // Clear active session highlight in sidebar
   document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
 }
 
@@ -2103,42 +2988,46 @@ function hideNewRecordingView(){
   Q('#new-rec-btn')?.classList.remove('active');
 }
 
+function showMemoryView(){
+  closeViewer();
+  hideNewRecordingView();
+  const m=Q('#memory-view');
+  if(m) m.style.display='';
+  Q('#memory-nav-btn')?.classList.add('active');
+  document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
+  loadMemoryView();
+}
+
+function hideMemoryView(){
+  const m=Q('#memory-view');
+  if(m) m.style.display='none';
+  Q('#memory-nav-btn')?.classList.remove('active');
+}
+
 function startRename(el,sess){
-  if(!sess)return;
-  // Strip the pencil button's text from current title
-  const btn=el.querySelector('button');
+  if(!sess||!el)return;
+  if(el.querySelector('input'))return;
   const current=(sess.title||sess.id);
   const input=document.createElement('input');
   input.type='text';input.value=current;
   input.style.cssText='font-size:18px;font-weight:700;color:#1e293b;border:1px solid #6366f1;border-radius:6px;padding:2px 8px;width:100%;outline:none;';
   el.innerHTML='';el.appendChild(input);input.focus();input.select();
   let done=false;
-  function restoreTitle(title){
-    el.innerHTML=esc(title)+
-      ' <button class="rename-btn" onclick="startRename(Q(\'#v-title\'),viewerSession)" title="Rename">\u270E</button>';
-  }
+  function restoreTitle(title){ el.innerHTML=titleHtml(title); }
   async function finish(save){
     if(done)return; done=true;
-    const val=input.value.trim();
-    if(save&&val&&val!==current){
-      try{
-        const r=await f(`/api/sessions/${sess.id}/rename`,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({title:val})
-        });
-        if(!r.ok){
-          const d=await r.json();
-          alert('Rename failed: '+(d.error||'unknown'));
-          restoreTitle(current);
-          return;
-        }
-        if(viewerSession) viewerSession.title=val;
-        restoreTitle(val);
-        loadSessions();
-      }catch(e){
-        alert('Rename failed: '+e.message);
+    const v=input.value.trim();
+    if(save&&v&&v!==current){
+      const res=await postJson(`/api/sessions/${encodeURIComponent(sess.id)}/rename`,{title:v});
+      if(!res.ok){
+        toast('Rename failed: '+res.error);
         restoreTitle(current);
+        return;
       }
+      if(viewerSession&&viewerSession.id===sess.id) viewerSession.title=v;
+      if(_sessionsCache[sess.id]) _sessionsCache[sess.id].title=v;
+      restoreTitle(v);
+      loadSessions();
     }else{
       restoreTitle(current);
     }
@@ -2148,6 +3037,303 @@ function startRename(el,sess){
     if(e.key==='Escape'){e.preventDefault();finish(false)}
   };
   input.onblur=function(){finish(true)};
+}
+
+// ===========================================================================
+// Memory view
+// ===========================================================================
+let _mvSel=new Map();      // session id -> title
+let _mvIndex={};           // session id -> title (from lists shown in this view)
+let _mvRecent=[];          // [{id,title,has_memory}]
+let _mvShown=[];           // rows currently shown (search results or recent)
+let _mvSearchOpen=false;
+let _mvProjects=[];
+let _mvAsking=false;
+
+function mvTitleFor(id){
+  return _mvIndex[id]||(_sessionsCache[id]&&(_sessionsCache[id].title||id))||id;
+}
+
+async function loadMemoryView(){
+  await Promise.all([mvLoadRecent(),mvLoadProjects()]);
+  mvRenderSel();
+  mvLoadTodos();
+}
+
+function mvRowHtml(item,extra){
+  return `<label class="mv-row">
+    <input type="checkbox" data-sid="${attr(item.id)}"${_mvSel.has(item.id)?' checked':''} onchange="mvToggle(this.dataset.sid,this.checked)">
+    <span class="mv-dot${item.has_memory?' on':''}" title="${item.has_memory?'Memory available':'No memory yet'}"></span>
+    <span class="mv-title">${esc(item.title)}</span>
+    <span class="mv-date">${esc(sessionDate(item.id))}</span>
+  </label>${extra||''}`;
+}
+
+async function mvLoadRecent(){
+  const box=Q('#mv-recent');
+  try{
+    const r=await f('/api/sessions?limit=100');
+    const data=await r.json();
+    const list=(data.sessions||[]).filter(s=>s.files&&s.files.transcript);
+    (data.sessions||[]).forEach(s=>{_sessionsCache[s.id]=s});
+    _mvRecent=list.map(s=>({id:s.id,title:s.title||s.id,has_memory:!!s.has_memory}));
+    _mvRecent.forEach(it=>{_mvIndex[it.id]=it.title});
+    if(!_mvSearchOpen) _mvShown=_mvRecent;
+    box.innerHTML=_mvRecent.length?_mvRecent.map(it=>mvRowHtml(it)).join(''):'<div class="empty">No transcribed meetings yet.</div>';
+  }catch(e){
+    box.innerHTML='<div class="empty">Could not load meetings.</div>';
+  }
+}
+
+async function mvSearch(){
+  const q=Q('#mv-search').value.trim();
+  if(!q){mvClearSearch();return}
+  const box=Q('#mv-search-results');
+  box.style.display='';
+  Q('#mv-search-clear').style.display='inline-block';
+  box.innerHTML='<div class="empty">Searching...</div>';
+  setMsg('#mv-search-msg','');
+  let results=[], source='memory';
+  try{
+    const r=await f('/api/memory/search?q='+encodeURIComponent(q));
+    if(r.ok) results=await r.json();
+    else{let d={};try{d=await r.json()}catch(e){} setMsg('#mv-search-msg','Memory search unavailable: '+(d.error||('error '+r.status)),'err');}
+  }catch(e){}
+  if(!Array.isArray(results)) results=[];
+  if(!results.length){
+    try{
+      const r=await f('/api/search?q='+encodeURIComponent(q));
+      if(r.ok){results=await r.json();source='transcript';}
+    }catch(e){}
+    if(!Array.isArray(results)) results=[];
+  }
+  _mvSearchOpen=true;
+  const items=results.map(x=>{
+    const id=x.session_id;
+    const known=_mvRecent.find(it=>it.id===id);
+    const title=x.title||(known&&known.title)||id;
+    _mvIndex[id]=title;
+    return {id,title,has_memory:source==='memory'||!!(known&&known.has_memory),snippet:x.snippet||''};
+  });
+  _mvShown=items;
+  if(!items.length){
+    box.innerHTML=`<div class="empty">No matches for "${esc(q)}".</div>`;
+    return;
+  }
+  const note=source==='transcript'?'<div class="muted" style="padding:6px 8px">No memory matches; showing transcript matches.</div>':'';
+  box.innerHTML=note+items.map(it=>mvRowHtml(it,it.snippet?`<div class="mv-snippet">${safeSnippet(it.snippet)}</div>`:'')).join('');
+}
+
+function mvClearSearch(){
+  Q('#mv-search').value='';
+  const box=Q('#mv-search-results');
+  box.style.display='none';
+  box.innerHTML='';
+  Q('#mv-search-clear').style.display='none';
+  setMsg('#mv-search-msg','');
+  _mvSearchOpen=false;
+  _mvShown=_mvRecent;
+}
+
+function mvToggle(id,checked){
+  if(checked) _mvSel.set(id,mvTitleFor(id));
+  else _mvSel.delete(id);
+  mvRenderSel();
+  mvSyncChecks();
+  mvLoadTodos();
+}
+
+function mvSyncChecks(){
+  document.querySelectorAll('#memory-view input[data-sid]').forEach(cb=>{cb.checked=_mvSel.has(cb.dataset.sid)});
+}
+
+function mvRenderSel(){
+  const box=Q('#mv-sel-chips');
+  if(!_mvSel.size){box.innerHTML='<span class="muted">No meetings selected.</span>';return}
+  box.innerHTML=Array.from(_mvSel.entries()).map(([id,title])=>
+    `<span class="sel-chip" title="${attr(id)}"><span>${esc(title)}</span><button title="Remove" onclick="mvToggle('${attr(id)}',false)">&times;</button></span>`
+  ).join('');
+}
+
+function mvSelectAllShown(){
+  (_mvShown||[]).forEach(it=>_mvSel.set(it.id,it.title));
+  mvRenderSel(); mvSyncChecks(); mvLoadTodos();
+}
+
+function mvClearSel(){
+  _mvSel.clear();
+  mvRenderSel(); mvSyncChecks(); mvLoadTodos();
+}
+
+// Projects -----------------------------------------------------------------
+async function mvLoadProjects(){
+  const sel=Q('#mv-project');
+  const current=sel.value;
+  try{
+    const r=await f('/api/memory/projects');
+    if(!r.ok){
+      let d={};try{d=await r.json()}catch(e){}
+      setMsg('#mv-proj-msg','Projects unavailable: '+(d.error||('error '+r.status)),'err');
+      _mvProjects=[];
+    }else{
+      const data=await r.json();
+      _mvProjects=data.projects||[];
+    }
+  }catch(e){_mvProjects=[]}
+  sel.innerHTML='<option value="">Choose a project...</option>'+_mvProjects.map(p=>
+    `<option value="${attr(p.id)}"${p.id===current?' selected':''}>${esc(p.name)} (${(p.session_ids||[]).length})</option>`).join('');
+  Q('#mv-proj-del').disabled=!sel.value;
+}
+
+function mvProjectChanged(){
+  const id=Q('#mv-project').value;
+  const p=_mvProjects.find(x=>x.id===id);
+  Q('#mv-proj-del').disabled=!p;
+  setMsg('#mv-proj-msg','');
+  if(!p)return;
+  _mvSel=new Map((p.session_ids||[]).map(sid=>[sid,mvTitleFor(sid)]));
+  Q('#mv-proj-name').value=p.name;
+  mvRenderSel(); mvSyncChecks(); mvLoadTodos();
+}
+
+async function mvSaveProject(){
+  const name=Q('#mv-proj-name').value.trim();
+  if(!name){setMsg('#mv-proj-msg','Enter a project name first.','err');return}
+  if(!_mvSel.size){setMsg('#mv-proj-msg','Select at least one meeting first.','err');return}
+  const ids=Array.from(_mvSel.keys());
+  const curId=Q('#mv-project').value;
+  const cur=_mvProjects.find(x=>x.id===curId);
+  let res;
+  if(cur&&cur.name===name){
+    res=await postJson(`/api/memory/projects/${encodeURIComponent(cur.id)}`,{session_ids:ids},'PUT');
+    if(!res.ok){setMsg('#mv-proj-msg',res.error,'err');return}
+    await mvLoadProjects();
+    setMsg('#mv-proj-msg','Project updated.','ok');
+  }else{
+    res=await postJson('/api/memory/projects',{name,session_ids:ids});
+    if(!res.ok){setMsg('#mv-proj-msg',res.error,'err');return}
+    await mvLoadProjects();
+    const p=res.data.project;
+    if(p&&p.id){Q('#mv-project').value=p.id;Q('#mv-proj-del').disabled=false;}
+    setMsg('#mv-proj-msg','Project saved.','ok');
+  }
+}
+
+async function mvDeleteProject(){
+  const id=Q('#mv-project').value;
+  const p=_mvProjects.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm(`Delete project "${p.name}"? Meetings and their memory are kept.`))return;
+  let ok=false, err='';
+  try{
+    const r=await f(`/api/memory/projects/${encodeURIComponent(id)}`,{method:'DELETE'});
+    ok=r.ok;
+    if(!ok){let d={};try{d=await r.json()}catch(e){} err=d.error||('Request failed ('+r.status+')');}
+  }catch(e){err='Network error: '+e.message}
+  if(!ok){setMsg('#mv-proj-msg',err,'err');return}
+  Q('#mv-project').value='';
+  Q('#mv-proj-name').value='';
+  await mvLoadProjects();
+  setMsg('#mv-proj-msg','Project deleted.','ok');
+}
+
+// Ask ----------------------------------------------------------------------
+function mvQuick(text){
+  Q('#mv-question').value=text;
+  Q('#mv-question').focus();
+}
+
+async function mvAsk(){
+  if(_mvAsking)return;
+  const q=Q('#mv-question').value.trim();
+  if(!q){setMsg('#mv-ask-msg','Type a question first.','err');return}
+  const projectId=Q('#mv-project').value||null;
+  if(!_mvSel.size&&!projectId){setMsg('#mv-ask-msg','Select at least one meeting (or a project) first.','err');return}
+  const btn=Q('#mv-ask-btn');
+  _mvAsking=true;
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin-sm" style="border-color:rgba(255,255,255,.4);border-top-color:#fff"></span> Asking Claude…';
+  setMsg('#mv-ask-msg','');
+  Q('#mv-answer').style.display='none';
+  Q('#mv-sources').innerHTML='';
+  const res=await postJson('/api/memory/ask',{question:q,session_ids:Array.from(_mvSel.keys()),project_id:projectId});
+  _mvAsking=false;
+  btn.disabled=false;
+  btn.textContent='Ask Claude';
+  if(!res.ok){setMsg('#mv-ask-msg',res.error,'err');return}
+  const d=res.data||{};
+  const ans=Q('#mv-answer');
+  ans.innerHTML=renderMd(d.answer||'')||'<span class="muted">No answer.</span>';
+  ans.style.display='';
+  const srcs=d.sources||[], omitted=d.omitted||[];
+  let html='';
+  if(srcs.length){
+    html+='<div><strong>Sources</strong></div><ul>'+srcs.map(s=>{
+      const marks=[];
+      if(s.source==='none') marks.push('(no memory yet)');
+      if(s.source==='analysis') marks.push('(analysis excerpt)');
+      if(s.truncated) marks.push('(truncated)');
+      return `<li><a onclick="openSessionById('${attr(s.session_id)}')">${esc(s.label||s.title||s.session_id)}</a>${marks.length?' <span class="muted">'+esc(marks.join(' '))+'</span>':''}</li>`;
+    }).join('')+'</ul>';
+  }
+  if(omitted.length){
+    html+=`<div class="muted">Not included (limit reached): ${esc(omitted.map(mvTitleFor).join(', '))}</div>`;
+  }
+  Q('#mv-sources').innerHTML=html;
+}
+
+// Open to-dos --------------------------------------------------------------
+function mvTodoHtml(t){
+  return `<label class="todo">
+    <input type="checkbox" onchange="mvTaskDone('${attr(t.id)}',this)">
+    <div class="todo-body">
+      <span class="todo-text">${esc(t.text)}</span>
+      ${t.owner?`<span class="owner-pill">${esc(t.owner)}</span>`:''}
+      ${t.deadline?`<span class="deadline-pill">${esc(t.deadline)}</span>`:''}
+      ${t.ts?`<span class="ts">[${esc(t.ts)}]</span>`:''}
+      ${t.verified===false?'<span class="marker">unverified</span>':''}
+      ${t.stale?'<span class="marker stale">not in latest update</span>':''}
+    </div>
+  </label>`;
+}
+
+async function mvLoadTodos(){
+  const box=Q('#mv-todos');
+  let url='/api/memory/tasks?status=open';
+  if(_mvSel.size) url+=Array.from(_mvSel.keys()).map(id=>'&session_id='+encodeURIComponent(id)).join('');
+  let tasks=[];
+  try{
+    const r=await f(url);
+    if(!r.ok){
+      let d={};try{d=await r.json()}catch(e){}
+      box.innerHTML=`<div class="empty">To-dos unavailable: ${esc(d.error||('error '+r.status))}</div>`;
+      return;
+    }
+    tasks=(await r.json()).tasks||[];
+  }catch(e){box.innerHTML='<div class="empty">Could not load to-dos.</div>';return}
+  if(!tasks.length){
+    box.innerHTML=`<div class="empty">${_mvSel.size?'No open to-dos for the selected meetings.':'No open to-dos.'}</div>`;
+    return;
+  }
+  const groups=new Map();
+  tasks.forEach(t=>{
+    if(!groups.has(t.session_id)) groups.set(t.session_id,[]);
+    groups.get(t.session_id).push(t);
+  });
+  box.innerHTML=Array.from(groups.entries()).map(([sid,list])=>
+    `<div class="todo-group">
+      <div class="todo-group-h"><a onclick="openSessionById('${attr(sid)}')">${esc(mvTitleFor(sid))}</a> <span class="muted">${esc(sessionDate(sid))}</span></div>
+      ${list.map(mvTodoHtml).join('')}
+    </div>`).join('');
+}
+
+async function mvTaskDone(id,cb){
+  cb.disabled=true;
+  const res=await postJson(`/api/memory/tasks/${encodeURIComponent(id)}`,{status:'done'},'PATCH');
+  if(!res.ok){cb.disabled=false;cb.checked=false;setMsg('#mv-todo-msg',res.error,'err');return}
+  setMsg('#mv-todo-msg','');
+  mvLoadTodos();
+  if(viewerSession&&_viewerTab==='memory') loadMemoryTab();
 }
 
 // ===========================================================================
@@ -2500,57 +3686,56 @@ async function handleImport(input){
   input.value='';// reset so same file can be re-selected
 }
 
+function showImportResult(html){
+  const box=Q('#import-result');
+  box.innerHTML=html;
+  box.style.display=html?'':'none';
+}
+
 async function doImportFile(file){
   const area=Q('#import-area');
   const prog=Q('#import-progress');
-
-  // Validate
-  if(ui==='recording'||ui==='processing'){
-    alert('Please wait for the current operation to finish.');return;
-  }
-
   area.classList.add('importing');
   prog.textContent=`Uploading ${file.name}...`;
   prog.classList.add('show');
+  showImportResult('');
 
   const form=new FormData();
   form.append('audio',file);
-  form.append('language',val('language')||'');
-  form.append('skip_analysis',Q('#skip-analysis').checked?'true':'false');
-  form.append('recipe_id',val('recipe')||'');
-  form.append('denoise',Q('#denoise').checked?'true':'false');
 
   try{
     const r=await f('/api/import',{method:'POST',body:form});
-    if(!r.ok){
-      const d=await r.json();
-      alert(d.error||'Import failed');
-      area.classList.remove('importing');
-      prog.classList.remove('show');
-      return;
-    }
-    prog.textContent='Processing...';
-    setUI('processing');
-    closeViewer();
-    // polling will pick up the processing state and show result when done
-  }catch(e){
-    alert('Upload failed: '+e.message);
+    let d={};try{d=await r.json()}catch(e){}
     area.classList.remove('importing');
     prog.classList.remove('show');
+    if(!r.ok){
+      showImportResult(`<span class="err">${esc(d.error||('Import failed ('+r.status+')'))}</span>`);
+      return;
+    }
+    _importAfter={id:d.session_id,title:d.title||d.session_id};
+    showImportResult(`<span>Imported as <strong>${esc(_importAfter.title)}</strong>.</span>
+      <button class="btn primary sm" id="imp-queue-btn" onclick="queueImported()">Add to queue</button>
+      <button class="btn sm" onclick="openImported()">Open</button>
+      <span class="msg" id="imp-msg" style="margin:0"></span>`);
+    loadSessions();
+  }catch(e){
+    area.classList.remove('importing');
+    prog.classList.remove('show');
+    showImportResult(`<span class="err">Upload failed: ${esc(e.message)}</span>`);
   }
 }
 
-// Reset import card when processing finishes
-const _origSetUI=setUI;
-setUI=function(state){
-  _origSetUI(state);
-  if(state==='done'||state==='idle'||state==='error'||state==='stopped'){
-    const area=Q('#import-area');
-    if(area){area.classList.remove('importing');}
-    const prog=Q('#import-progress');
-    if(prog){prog.classList.remove('show');prog.style.color='';}
-  }
-};
+async function queueImported(){
+  if(!_importAfter)return;
+  const btn=Q('#imp-queue-btn'); if(btn) btn.disabled=true;
+  const res=await addToQueue(_importAfter.id);
+  if(res.ok) setMsg('#imp-msg','Queued. Run the queue when you’re ready.','ok');
+  else{setMsg('#imp-msg',res.error,'err');if(btn) btn.disabled=false;}
+}
+
+function openImported(){
+  if(_importAfter) openSessionById(_importAfter.id);
+}
 </script>
 </body>
 </html>
