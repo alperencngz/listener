@@ -67,6 +67,8 @@ _RECORDING_IDLE = {
     "start_time": None,
     "audio_path": None,
     "device": None,
+    "device_name": None,
+    "device_note": None,   # e.g. the chosen microphone vanished and the default was used
     "live": False,        # live transcription running (or about to) for this recording
     "live_note": None,    # why live transcription is off / degraded, if requested
 }
@@ -203,8 +205,13 @@ def index():
 
 @app.route("/api/devices")
 def api_devices():
+    """Input devices, re-read from the OS (unless a recording holds the stream open)."""
     from listener.recorder import list_input_devices
-    return jsonify(list_input_devices())
+    try:
+        return jsonify(list_input_devices())
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not list input devices: %s", exc)
+        return jsonify([])
 
 
 @app.route("/api/status")
@@ -229,12 +236,20 @@ def api_start():
     _ensure_init()
     data = request.json or {}
     device_val = data.get("device")
-    device = int(device_val) if device_val is not None and device_val != "" else None
+    try:
+        device = int(device_val) if device_val is not None and device_val != "" else None
+    except (TypeError, ValueError):
+        return _err("device must be a number")
+    device_name = data.get("device_name")
+    if device_name is not None and not isinstance(device_name, str):
+        return _err("device_name must be a string")
+    if not device_name and device is None:
+        device_name = settings.input_device()
     language = data.get("language") or None
     model_size = data.get("model_size", "large-v3")
     live_requested = bool(data.get("live_transcription", False))
 
-    from listener.recorder import Recorder
+    from listener.recorder import Recorder, describe_audio_error, resolve_device
 
     # Reserve the recording slot, the session id and the live-transcription
     # intent in one critical section. From here on a second /api/start gets
@@ -245,6 +260,13 @@ def api_start():
     with _rec_lock:
         if _recording["active"]:
             return _err(f"Already recording session {_recording['session_id']}. Stop it first.", 409)
+        # Re-read the device list from the OS and resolve the choice by name:
+        # a microphone that vanished (iPhone, Bluetooth) falls back to the
+        # default one with a note instead of failing on a stale index.
+        try:
+            device, device_name, device_note = resolve_device(device, device_name)
+        except Exception as exc:  # noqa: BLE001
+            return _err(describe_audio_error(exc, device_name), 500)
         live = False
         live_note = None
         if live_requested:
@@ -254,14 +276,16 @@ def api_start():
                 live = True
         try:
             session_id = _reserve_session_id(
-                recorded_at=datetime.now().isoformat(timespec="seconds"), device=device, source="recording",
+                recorded_at=datetime.now().isoformat(timespec="seconds"), device=device,
+                device_name=device_name, source="recording",
             )
         except Exception as exc:  # noqa: BLE001
             return _err(f"Could not create the meeting files: {exc}", 500)
         audio_path = str(session_paths(OUTPUT_DIR, session_id)["audio"])
         _recording.update({
             "active": True, "starting": True, "session_id": session_id, "start_time": None,
-            "audio_path": audio_path, "device": device, "live": live, "live_note": live_note,
+            "audio_path": audio_path, "device": device, "device_name": device_name,
+            "device_note": device_note, "live": live, "live_note": live_note,
         })
 
     audio_hook = None
@@ -290,15 +314,21 @@ def api_start():
                 pass
         with _rec_lock:
             _recording.update(_RECORDING_IDLE)
-        session_paths(OUTPUT_DIR, session_id)["meta"].unlink(missing_ok=True)
-        return _err(f"Could not start recording: {exc}", 500)
+        # Nothing was recorded: remove the placeholder meta and any empty WAV so
+        # no empty meeting shows up in the list.
+        paths = session_paths(OUTPUT_DIR, session_id)
+        paths["meta"].unlink(missing_ok=True)
+        paths["audio"].unlink(missing_ok=True)
+        logger.warning("Could not start recording on %r: %s", device_name, exc)
+        return _err(describe_audio_error(exc, device_name), 500)
 
     with _rec_lock:
         _recorder = recorder
         _streamer = streamer
         _recording.update({"starting": False, "start_time": time.time(), "live": live, "live_note": live_note})
 
-    return jsonify({"session_id": session_id, "live": live, "live_note": live_note})
+    return jsonify({"session_id": session_id, "device": device, "device_name": device_name,
+                    "device_note": device_note, "live": live, "live_note": live_note})
 
 
 @app.route("/api/stop", methods=["POST"])
@@ -742,6 +772,7 @@ def _settings_payload() -> dict:
         "data_dir": str(OUTPUT_DIR.resolve()),
         "config_path": str(settings.CONFIG_PATH),
         "default_model": settings.default_model(),
+        "input_device": settings.input_device(),
         "models": [{"id": model_id, "label": label} for model_id, label in settings.WHISPER_MODELS],
         "claude": settings.claude_status(),
     }
@@ -761,6 +792,14 @@ def api_settings_update():
             return _err(f"Unknown model: {model}")
         try:
             settings.update_config(default_model=model)
+        except OSError as exc:
+            return _err(f"Could not save settings: {exc}", 500)
+    if "input_device" in data:
+        name = data.get("input_device")
+        if name is not None and not isinstance(name, str):
+            return _err("input_device must be a string")
+        try:
+            settings.update_config(input_device=(name or "").strip() or None)
         except OSError as exc:
             return _err(f"Could not save settings: {exc}", 500)
     return jsonify(_settings_payload())

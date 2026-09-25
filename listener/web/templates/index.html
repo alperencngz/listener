@@ -970,7 +970,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <div class="settings-row">
       <div class="fg">
         <label for="device">Input Device</label>
-        <select id="device"><option>Loading...</option></select>
+        <select id="device" onchange="deviceChanged()"><option>Loading...</option></select>
       </div>
       <div class="fg">
         <label for="language">Language</label>
@@ -1207,8 +1207,8 @@ const JSON_HDR={'Content-Type':'application/json'};
 // Init
 // ===========================================================================
 (async()=>{
+  await loadSettings();   // remembered input device is needed before the list is filled
   await loadDevices();
-  await loadSettings();
   await loadRecipes();
   await loadSessions();
   loadWebhooks();
@@ -1278,14 +1278,39 @@ function safeSnippet(s){
 // ===========================================================================
 // Devices
 // ===========================================================================
+// The list is re-read from the OS on every call (iPhone / Bluetooth microphones
+// come and go). The remembered choice (settings.input_device, by name) is
+// preselected when present, otherwise the system default microphone.
+let _devLoadedAt=0;
 async function loadDevices(){
+  const s=Q('#device');
+  if(_recActive||s.disabled) return;   // never swap the list under a live recording
+  if(Date.now()-_devLoadedAt<1000) return;   // startup + window focus fire together
+  _devLoadedAt=Date.now();
   try{
     const r=await f('/api/devices');
     const devs=await r.json();
-    const s=Q('#device');
-    s.innerHTML=devs.map(d=>`<option value="${attr(d.id)}">${esc(d.name)}</option>`).join('');
+    const wanted=(_settings&&_settings.input_device)||(s.selectedOptions[0]&&s.selectedOptions[0].dataset.name)||'';
+    let chosen=devs.find(d=>d.name===wanted)||devs.find(d=>d.default)||devs[0];
+    if(!devs.length){s.innerHTML='<option value="">No microphone found</option>';return;}
+    s.innerHTML=devs.map(d=>`<option value="${attr(d.id)}" data-name="${attr(d.name)}"${chosen&&d.id===chosen.id?' selected':''}>${esc(d.name)}${d.default?' (default)':''}</option>`).join('');
+    // The remembered microphone is not connected right now: say so once, without
+    // forgetting it (it is picked again as soon as it reappears).
+    const remembered=_settings&&_settings.input_device;
+    if(remembered&&chosen&&chosen.name!==remembered) showLiveNote('\u201c'+remembered+'\u201d is not connected. Using \u201c'+chosen.name+'\u201d.');
   }catch(e){console.error(e)}
 }
+function selectedDeviceName(){
+  const o=Q('#device').selectedOptions[0];
+  return o&&o.dataset.name?o.dataset.name:null;
+}
+async function deviceChanged(){
+  const name=selectedDeviceName();
+  if(_settings) _settings.input_device=name;
+  const res=await postJson('/api/settings',{input_device:name});
+  if(res.ok) _settings=res.data;
+}
+window.addEventListener('focus',()=>{loadDevices();});
 
 // ===========================================================================
 // Recipes (F3) — used by the Analysis tab
@@ -1392,6 +1417,7 @@ async function doStart(){
   const lang=val('language');
   const body={
     device:val('device')!==''?parseInt(val('device')):null,
+    device_name:selectedDeviceName(),
     language:(lang===''||lang==='mixed')?null:lang,
     live_transcription:Q('#live-transcription').checked,
     model_size:val('model')||'large-v3',
@@ -1409,7 +1435,7 @@ async function doStart(){
   setRecUI(true);
   _recStart=Date.now();
   if(!_tRef) _tRef=setInterval(tick,100);
-  showLiveNote(res.data.live_note);
+  showLiveNote(recNote(res.data));
   if(res.data.live) startLiveStream();
   else Q('#live-panel').classList.remove('open');
   loadSessions();
@@ -1453,6 +1479,9 @@ function setRecUI(active,text){
   }
 }
 
+function recNote(rec){
+  return [rec&&rec.device_note,rec&&rec.live_note].filter(Boolean).join(' ');
+}
 function showLiveNote(note){
   const el=Q('#rec-note');
   if(note){el.textContent=note;el.style.display='';}
@@ -1468,7 +1497,7 @@ function applyRecording(rec){
       if(rec.live&&!_evtSource) startLiveStream();
     }
     _recStart=Date.now()-(rec.elapsed||0)*1000;
-    showLiveNote(rec.live_note);
+    showLiveNote(recNote(rec));
   }else if(_recActive){
     // Stopped elsewhere (another tab / CLI)
     clearInterval(_tRef); _tRef=null; _recStart=null;

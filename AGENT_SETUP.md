@@ -141,6 +141,11 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.alperencngz.li
 - **Microphone prompt never appears / recording fails at once:** System Settings → Privacy &
   Security → Microphone → make sure Listener is listed and on. If it is missing, run
   `tccutil reset Microphone io.github.alperencngz.listener` and press Record again.
+- **"Could not open … microphone":** the chosen input device (often an iPhone or Bluetooth
+  microphone) disconnected. The Input Device list is re-read from the OS each time the window
+  gets focus and each time you press Record; pick another device. The choice is remembered by
+  name in `config.yaml` (`input_device`), and a device that is gone falls back to the system
+  default microphone with a note under the Record button.
 - **Speaker names (diarization):** optional; needs a HuggingFace token in
   `~/.listener/config.yaml` (`hf_token`), see the README.
 

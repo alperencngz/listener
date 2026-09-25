@@ -35,6 +35,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8642
+ENV_PORT = "LISTENER_PORT"      # optional override, e.g. to run a second instance
 WINDOW_TITLE = "Listener"
 WINDOW_SIZE = (1280, 860)
 WINDOW_MIN_SIZE = (900, 600)
@@ -110,6 +111,16 @@ def port_free(port: int) -> bool:
             return True
         except OSError:
             return False
+
+
+def preferred_port(env: dict | None = None) -> int:
+    """``LISTENER_PORT`` when it is a valid port number, else ``DEFAULT_PORT``."""
+    env = os.environ if env is None else env
+    try:
+        port = int(str(env.get(ENV_PORT, "")).strip() or DEFAULT_PORT)
+    except ValueError:
+        return DEFAULT_PORT
+    return port if 1 <= port <= 65535 else DEFAULT_PORT
 
 
 def pick_port(preferred: int = DEFAULT_PORT) -> int:
@@ -227,7 +238,7 @@ def main() -> int:
     os.environ.setdefault(settings.ENV_DEFAULT_MODEL, DESKTOP_DEFAULT_MODEL)
     logger.info("Listener desktop starting; meetings in %s; config %s", transcripts, settings.CONFIG_PATH)
 
-    port = DEFAULT_PORT
+    port = preferred_port()
     if server_alive(port):
         logger.info("A Listener server is already running on port %d; opening a window to it", port)
     else:

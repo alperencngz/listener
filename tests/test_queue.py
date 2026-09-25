@@ -75,6 +75,12 @@ def client(isolated_env, monkeypatch):
     webapp._reset_for_tests()
     FakeRecorder.instances.clear()
     monkeypatch.setattr(listener.recorder, "Recorder", FakeRecorder)
+    # Keep the suite off the real audio stack: resolve whatever was asked for.
+    monkeypatch.setattr(
+        listener.recorder, "resolve_device",
+        lambda device=None, name=None, refresh=True: (device if device is not None else 0,
+                                                       name or "Fake Microphone", None),
+    )
     # No HF token → no diarization; no webhooks configured
     monkeypatch.setenv("HF_TOKEN", "")
     monkeypatch.setenv("HUGGINGFACE_TOKEN", "")

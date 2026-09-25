@@ -96,7 +96,11 @@ in its own window (`listener desktop` does the same from a terminal), stores mee
 `~/Documents/Listener` unless `data_dir` is set in `~/.listener/config.yaml`, preselects the
 `large-v3-turbo` model, and asks before quitting while a recording or a transcription is
 running. Exports and downloads open a Save dialog. Microphone access is granted to the app
-itself the first time you press Record.
+itself the first time you press Record. The Input Device list is re-read from the OS whenever
+the window gets focus and whenever you press Record, the system default microphone is
+preselected, and your choice is remembered by name; if that device has disconnected (an
+iPhone or Bluetooth microphone, say) the recording falls back to the default microphone and
+says so under the Record button.
 
 ### HuggingFace token (optional, for diarization)
 

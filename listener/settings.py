@@ -106,6 +106,12 @@ def transcripts_dir(default_root: Path | None = None) -> Path:
 # Whisper model
 # ---------------------------------------------------------------------------
 
+def input_device() -> str | None:
+    """Preferred microphone, remembered by name (indices shift as devices come and go)."""
+    name = str(load_config().get("input_device") or "").strip()
+    return name or None
+
+
 def default_model() -> str:
     """Model preselected in the UI: config, then env, then ``DEFAULT_MODEL``."""
     for candidate in (load_config().get("default_model"), os.environ.get(ENV_DEFAULT_MODEL)):

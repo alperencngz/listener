@@ -41,7 +41,8 @@ def devices():
 
     click.echo("Available input devices:\n")
     for dev in devs:
-        click.echo(f"  [{dev['id']}] {dev['name']}")
+        default = "  (default)" if dev.get("default") else ""
+        click.echo(f"  [{dev['id']}] {dev['name']}{default}")
         click.echo(f"      Channels: {dev['channels']}, "
                     f"Sample rate: {int(dev['sample_rate'])} Hz")
     click.echo()
@@ -246,29 +247,28 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
     Press Enter or Ctrl+C to stop. Audio is then transcribed
     with Whisper and optionally analyzed by Claude.
     """
-    import sounddevice as sd
-    from listener.recorder import Recorder
+    from listener.recorder import Recorder, describe_audio_error, list_input_devices
 
-    # Resolve device
-    if device is None:
-        device = sd.default.device[0]
-        if device is None or device < 0:
-            click.echo("Error: no default input device found.", err=True)
-            click.echo("Run 'listener devices' and pass --device ID.")
-            sys.exit(1)
-
+    # Resolve device against a freshly read device list
     try:
-        dev_info = sd.query_devices(device)
-    except Exception as e:
-        click.echo(f"Error: device [{device}] not found: {e}", err=True)
-        click.echo("Run 'listener devices' to list available devices.")
+        devs = list_input_devices()
+    except Exception as e:  # noqa: BLE001
+        click.echo(f"Error: could not list input devices: {e}", err=True)
         sys.exit(1)
-
-    if dev_info["max_input_channels"] < 1:
-        click.echo(f"Error: [{device}] '{dev_info['name']}' has no input channels.", err=True)
+    if not devs:
+        click.echo("Error: no microphone found.", err=True)
         sys.exit(1)
-
-    click.echo(f"Device: [{device}] {dev_info['name']}")
+    if device is None:
+        chosen = next((d for d in devs if d["default"]), devs[0])
+    else:
+        chosen = next((d for d in devs if d["id"] == device), None)
+        if chosen is None:
+            click.echo(f"Error: device [{device}] is not an available input device.", err=True)
+            click.echo("Run 'listener devices' to list available devices.")
+            sys.exit(1)
+    device = chosen["id"]
+    device_name = chosen["name"]
+    click.echo(f"Device: [{device}] {device_name}")
 
     # Paths
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -281,7 +281,7 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
     try:
         recorder.start(audio_path)
     except Exception as e:
-        click.echo(f"Error: could not start recording: {e}", err=True)
+        click.echo(f"Error: {describe_audio_error(e, device_name)}", err=True)
         sys.exit(1)
 
     click.echo(f"Saving to: {audio_path}")

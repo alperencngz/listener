@@ -57,6 +57,13 @@ def test_on_closing_confirms_and_stops(monkeypatch):
     assert posted == ["http://127.0.0.1:8642/api/stop", "http://127.0.0.1:8642/api/queue/stop"]
 
 
+def test_preferred_port_env_override():
+    assert desktop.preferred_port({}) == desktop.DEFAULT_PORT
+    assert desktop.preferred_port({desktop.ENV_PORT: "8646"}) == 8646
+    assert desktop.preferred_port({desktop.ENV_PORT: "nope"}) == desktop.DEFAULT_PORT
+    assert desktop.preferred_port({desktop.ENV_PORT: "70000"}) == desktop.DEFAULT_PORT
+
+
 def test_pick_port_avoids_a_busy_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as busy:
         busy.bind(("127.0.0.1", 0))
