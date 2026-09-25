@@ -122,6 +122,8 @@ def transcribe(
     language: str | None = None,
     device: str = "cpu",
     compute_type: str = "auto",
+    multilingual: bool = False,
+    hotwords: str | None = None,
 ) -> TranscriptionResult:
     """Transcribe an audio file using faster-whisper.
 
@@ -134,6 +136,9 @@ def transcribe(
         language: Language code ('en', 'tr') or None for auto-detect.
         device: Compute device ('cpu').
         compute_type: Quantization ('auto', 'int8', 'float32').
+        multilingual: Re-detect language per 30s window — needed for
+            code-switching speech (e.g. Turkish with English sentences).
+        hotwords: Domain terms to bias decoding toward (names, jargon).
 
     Returns:
         TranscriptionResult with segments and metadata.
@@ -161,7 +166,8 @@ def transcribe(
         ]
         resume_from = checkpoint["last_end"]
         # Use language from checkpoint if not explicitly provided
-        if not language and checkpoint.get("language"):
+        # (skip when multilingual — language is re-detected per window)
+        if not language and not multilingual and checkpoint.get("language"):
             language = checkpoint["language"]
         print(f"Resuming transcription from {_fmt_ts(resume_from)} "
               f"({len(resumed_segments)} segments already done)")
@@ -179,6 +185,8 @@ def transcribe(
         vad_parameters=dict(min_silence_duration_ms=500),
         condition_on_previous_text=False,
         word_timestamps=True,
+        multilingual=multilingual,
+        hotwords=hotwords,
     )
     if resume_from > 0:
         transcribe_kwargs["clip_timestamps"] = [resume_from]
