@@ -51,17 +51,23 @@ OUTPUT_DIR = Path("./transcripts")
 # ---------------------------------------------------------------------------
 
 _rec_lock = threading.Lock()
-_recording = {
+_RECORDING_IDLE = {
     "active": False,
+    "starting": False,    # slot reserved, microphone/live model still opening
     "session_id": None,
     "start_time": None,
     "audio_path": None,
     "device": None,
-    "live": False,        # live transcription actually running for this recording
+    "live": False,        # live transcription running (or about to) for this recording
     "live_note": None,    # why live transcription is off / degraded, if requested
 }
+_recording = dict(_RECORDING_IDLE)
 _recorder = None
 _streamer = None  # StreamingTranscriber instance for live transcription
+
+# Session ids are allocated and claimed on disk under this lock so two
+# starts/imports in the same second never share an id.
+_sid_lock = threading.Lock()
 
 # In-memory chat sessions, keyed by session_id
 _chat_sessions: dict[str, "ChatSession"] = {}
@@ -112,10 +118,7 @@ def _reset_for_tests() -> None:
     _streamer = None
     _chat_sessions.clear()
     with _rec_lock:
-        _recording.update({
-            "active": False, "session_id": None, "start_time": None, "audio_path": None,
-            "device": None, "live": False, "live_note": None,
-        })
+        _recording.update(_RECORDING_IDLE)
     _runner = JobRunner({
         "transcribe": lambda job, ctx: run_transcribe_job(job, ctx, OUTPUT_DIR),
         "analyze": lambda job, ctx: run_analyze_job(job, ctx, OUTPUT_DIR),
@@ -137,6 +140,14 @@ def _new_session_id() -> str:
             return sid
         now += timedelta(seconds=1)
     return now.strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def _reserve_session_id(**meta_fields) -> str:
+    """Allocate a fresh session id and claim it by writing its meta file, atomically."""
+    with _sid_lock:
+        session_id = _new_session_id()
+        update_meta(OUTPUT_DIR, session_id, **meta_fields)
+    return session_id
 
 
 def _session_title(session_id: str, cache: dict | None = None) -> str:
@@ -207,10 +218,6 @@ def api_start():
     """Start a microphone recording. Independent of any processing job."""
     global _recorder, _streamer
     _ensure_init()
-    with _rec_lock:
-        if _recording["active"]:
-            return _err(f"Already recording session {_recording['session_id']}. Stop it first.", 409)
-
     data = request.json or {}
     device_val = data.get("device")
     device = int(device_val) if device_val is not None and device_val != "" else None
@@ -220,31 +227,48 @@ def api_start():
 
     from listener.recorder import Recorder
 
-    session_id = _new_session_id()
-    audio_path = str(session_paths(OUTPUT_DIR, session_id)["audio"])
-
-    # Optional live transcription. Policy under contention: recording always
-    # wins. If a transcription job is running we do not load a second Whisper
-    # model; the recording proceeds without live text and we say why.
-    audio_hook = None
-    live = False
-    live_note = None
-    streamer = None
-    if live_requested:
-        if _runner.transcription_active():
-            live_note = LIVE_BLOCKED_BY_RUN
-        else:
-            try:
-                from listener.streaming import StreamingTranscriber
-                streamer = StreamingTranscriber(model_size=model_size, language=language)
-                streamer.start()
-                audio_hook = streamer.feed_audio
+    # Reserve the recording slot, the session id and the live-transcription
+    # intent in one critical section. From here on a second /api/start gets
+    # 409 and /api/queue/run sees "live" (so no second Whisper instance can be
+    # started while the live model is still loading). Policy under contention:
+    # recording always wins; if a transcription job is running, live mode is
+    # skipped and the recording proceeds without live text.
+    with _rec_lock:
+        if _recording["active"]:
+            return _err(f"Already recording session {_recording['session_id']}. Stop it first.", 409)
+        live = False
+        live_note = None
+        if live_requested:
+            if _runner.transcription_active():
+                live_note = LIVE_BLOCKED_BY_RUN
+            else:
                 live = True
-                logger.info("Live transcription enabled for session %s", session_id)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("Could not start live transcription: %s", exc)
-                live_note = f"Live transcription unavailable: {exc}"
-                streamer = None
+        try:
+            session_id = _reserve_session_id(
+                recorded_at=datetime.now().isoformat(timespec="seconds"), device=device, source="recording",
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _err(f"Could not create the meeting files: {exc}", 500)
+        audio_path = str(session_paths(OUTPUT_DIR, session_id)["audio"])
+        _recording.update({
+            "active": True, "starting": True, "session_id": session_id, "start_time": None,
+            "audio_path": audio_path, "device": device, "live": live, "live_note": live_note,
+        })
+
+    audio_hook = None
+    streamer = None
+    if live:
+        try:
+            from listener.streaming import StreamingTranscriber
+            streamer = StreamingTranscriber(model_size=model_size, language=language)
+            streamer.start()
+            audio_hook = streamer.feed_audio
+            logger.info("Live transcription enabled for session %s", session_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not start live transcription: %s", exc)
+            live = False
+            live_note = f"Live transcription unavailable: {exc}"
+            streamer = None
 
     recorder = Recorder(device=device, on_audio=audio_hook)
     try:
@@ -255,26 +279,15 @@ def api_start():
                 streamer.stop()
             except Exception:
                 pass
+        with _rec_lock:
+            _recording.update(_RECORDING_IDLE)
+        session_paths(OUTPUT_DIR, session_id)["meta"].unlink(missing_ok=True)
         return _err(f"Could not start recording: {exc}", 500)
 
     with _rec_lock:
         _recorder = recorder
         _streamer = streamer
-        _recording.update({
-            "active": True,
-            "session_id": session_id,
-            "start_time": time.time(),
-            "audio_path": audio_path,
-            "device": device,
-            "live": live,
-            "live_note": live_note,
-        })
-
-    try:
-        update_meta(OUTPUT_DIR, session_id, recorded_at=datetime.now().isoformat(timespec="seconds"),
-                    device=device, source="recording")
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Could not write meta for %s: %s", session_id, exc)
+        _recording.update({"starting": False, "start_time": time.time(), "live": live, "live_note": live_note})
 
     return jsonify({"session_id": session_id, "live": live, "live_note": live_note})
 
@@ -286,16 +299,15 @@ def api_stop():
     with _rec_lock:
         if not _recording["active"]:
             return _err("Not currently recording", 400)
+        if _recording["starting"]:
+            return _err("The recording is still starting. Try again in a moment.", 409)
         recorder = _recorder
         streamer = _streamer
         session_id = _recording["session_id"]
         audio_path = _recording["audio_path"]
         _recorder = None
         _streamer = None
-        _recording.update({
-            "active": False, "session_id": None, "start_time": None, "audio_path": None,
-            "device": None, "live": False, "live_note": None,
-        })
+        _recording.update(_RECORDING_IDLE)
 
     try:
         recorder.stop()
@@ -334,26 +346,32 @@ def api_import():
     if not audio_file.filename:
         return _err("No file selected")
 
-    session_id = _new_session_id()
+    imported_at = datetime.now().isoformat(timespec="seconds")
+    session_id = _reserve_session_id(source="import", imported_at=imported_at,
+                                     original_filename=audio_file.filename)
     paths = session_paths(OUTPUT_DIR, session_id)
     audio_path = str(paths["audio"])
 
     original_ext = Path(audio_file.filename).suffix.lower() or ".wav"
     temp_path = str(OUTPUT_DIR / f"{session_id}_original{original_ext}")
-    audio_file.save(temp_path)
-
-    if original_ext == ".wav":
-        shutil.move(temp_path, audio_path)
-    else:
-        try:
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", temp_path, "-ar", "16000", "-ac", "1", audio_path],
-                capture_output=True, check=True,
-            )
-            Path(temp_path).unlink(missing_ok=True)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("ffmpeg conversion failed, using original file: %s", exc)
+    try:
+        audio_file.save(temp_path)
+        if original_ext == ".wav":
             shutil.move(temp_path, audio_path)
+        else:
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", temp_path, "-ar", "16000", "-ac", "1", audio_path],
+                    capture_output=True, check=True,
+                )
+                Path(temp_path).unlink(missing_ok=True)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("ffmpeg conversion failed, using original file: %s", exc)
+                shutil.move(temp_path, audio_path)
+    except Exception as exc:  # noqa: BLE001
+        Path(temp_path).unlink(missing_ok=True)
+        paths["meta"].unlink(missing_ok=True)
+        return _err(f"Could not save the audio file: {exc}", 500)
 
     duration = 0.0
     try:
@@ -362,9 +380,7 @@ def api_import():
     except Exception:
         pass
     title = Path(audio_file.filename).stem.strip() or default_title(session_id)
-    update_meta(OUTPUT_DIR, session_id, title=title, duration=duration, source="import",
-                original_filename=audio_file.filename,
-                imported_at=datetime.now().isoformat(timespec="seconds"))
+    update_meta(OUTPUT_DIR, session_id, title=title, duration=duration)
 
     return jsonify({"session_id": session_id, "title": title, "duration": duration,
                     "files": {"audio": paths["audio"].name}})
@@ -448,15 +464,16 @@ def api_queue_run():
     job_ids = data.get("job_ids")
     if job_ids is not None and not isinstance(job_ids, list):
         return _err("job_ids must be a list")
+    # Held while the run starts: /api/start checks the run under the same lock.
     with _rec_lock:
         if _recording["active"] and _recording["live"]:
             return _err(RUN_BLOCKED_BY_LIVE, 409)
-    try:
-        run = _runner.start_run(job_ids)
-    except jobsdb.RunActive as exc:
-        return _err(str(exc), 409)
-    except JobError as exc:
-        return _err(str(exc), 400)
+        try:
+            run = _runner.start_run(job_ids)
+        except jobsdb.RunActive as exc:
+            return _err(str(exc), 409)
+        except JobError as exc:
+            return _err(str(exc), 400)
     return jsonify({"run": run})
 
 
@@ -497,7 +514,7 @@ def api_queue_run_one(job_id):
         with _rec_lock:
             if _recording["active"] and _recording["live"]:
                 return _err(RUN_BLOCKED_BY_LIVE, 409)
-        run = _runner.start_run([job_id])
+            run = _runner.start_run([job_id])
         return jsonify({"run": run})
     except jobsdb.RunActive as exc:
         return _err(str(exc), 409)
@@ -1005,7 +1022,10 @@ def api_rename_session(session_id):
     paths = session_paths(OUTPUT_DIR, session_id)
     if not paths["audio"].exists() and not paths["transcript"].exists():
         return _err("Session not found", 404)
-    update_meta(OUTPUT_DIR, session_id, title=new_title)
+    try:
+        update_meta(OUTPUT_DIR, session_id, title=new_title)
+    except OSError as exc:
+        return _err(f"Could not save the new title: {exc}", 500)
     try:
         from listener.db import DB_LOCK, get_db
         conn = get_db()

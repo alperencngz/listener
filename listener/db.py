@@ -16,18 +16,101 @@ DB_PATH = Path.home() / ".listener" / "listener.db"
 _conn: sqlite3.Connection | None = None
 
 # One shared connection is used from Flask request threads and background
-# worker threads. Python's sqlite3 serialises individual statements, but a
-# multi-statement write (execute + commit) from two threads can interleave.
-# Hold DB_LOCK around any read-modify-write sequence.
+# worker threads. ``get_db()`` returns a ``LockedConnection`` that runs every
+# single call under this lock; hold DB_LOCK yourself around any multi-statement
+# read-modify-write sequence so it cannot interleave with another thread.
 DB_LOCK = threading.RLock()
 
 
+class _Rows:
+    """The fully fetched result of one statement.
+
+    Rows are read while ``DB_LOCK`` is held, so consuming them later (outside
+    the lock, possibly from another thread) never touches the connection.
+    """
+
+    __slots__ = ("_rows", "_pos", "lastrowid", "rowcount")
+
+    def __init__(self, cursor: sqlite3.Cursor):
+        self._rows = cursor.fetchall() if cursor.description else []
+        self._pos = 0
+        self.lastrowid = cursor.lastrowid
+        self.rowcount = cursor.rowcount
+
+    def fetchone(self):
+        if self._pos >= len(self._rows):
+            return None
+        row = self._rows[self._pos]
+        self._pos += 1
+        return row
+
+    def fetchall(self) -> list:
+        rows = self._rows[self._pos:]
+        self._pos = len(self._rows)
+        return rows
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+class LockedConnection:
+    """A ``sqlite3.Connection`` whose every call runs under ``DB_LOCK``.
+
+    One connection is shared by Flask request threads, the transcription run
+    thread and the Claude worker. Python's sqlite3 module must not be driven
+    from two threads at once (it fails with "bad parameter or other API
+    misuse"), so each statement is executed *and fully fetched* while the lock
+    is held. Multi-statement read-modify-write sequences still wrap themselves
+    in ``with DB_LOCK:`` (it is re-entrant) to stay atomic.
+    """
+
+    def __init__(self, conn: sqlite3.Connection):
+        object.__setattr__(self, "_conn", conn)
+
+    def execute(self, sql: str, params=()) -> _Rows:
+        with DB_LOCK:
+            return _Rows(self._conn.execute(sql, params))
+
+    def executemany(self, sql: str, seq) -> _Rows:
+        with DB_LOCK:
+            return _Rows(self._conn.executemany(sql, seq))
+
+    def executescript(self, script: str) -> None:
+        with DB_LOCK:
+            self._conn.executescript(script)
+
+    def commit(self) -> None:
+        with DB_LOCK:
+            self._conn.commit()
+
+    def rollback(self) -> None:
+        with DB_LOCK:
+            self._conn.rollback()
+
+    def close(self) -> None:
+        with DB_LOCK:
+            self._conn.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._conn, name, value)
+
+
 def get_db() -> sqlite3.Connection:
-    """Return a module-level SQLite connection, creating the DB and schema if needed."""
+    """Return the shared (lock-guarded) SQLite connection, creating the DB and schema if needed."""
     global _conn
     if _conn is not None:
         return _conn
+    with DB_LOCK:
+        if _conn is not None:
+            return _conn
+        _conn = LockedConnection(_open_db())
+        return _conn
 
+
+def _open_db() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -76,7 +159,6 @@ def get_db() -> sqlite3.Connection:
         END;
     """)
     conn.commit()
-    _conn = conn
     return conn
 
 
@@ -104,25 +186,27 @@ def insert_meeting(
 ) -> None:
     """Insert or replace a meeting in the DB (and FTS index via trigger)."""
     conn = get_db()
-    conn.execute(
-        """INSERT OR REPLACE INTO meetings
-           (session_id, title, date, duration, language, lang_confidence,
-            transcript, analysis, audio_path)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (session_id, title, date, duration, language, lang_confidence,
-         transcript, analysis, audio_path),
-    )
-    conn.commit()
+    with DB_LOCK:
+        conn.execute(
+            """INSERT OR REPLACE INTO meetings
+               (session_id, title, date, duration, language, lang_confidence,
+                transcript, analysis, audio_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, title, date, duration, language, lang_confidence,
+             transcript, analysis, audio_path),
+        )
+        conn.commit()
 
 
 def update_meeting_analysis(session_id: str, analysis: str) -> None:
     """Update just the analysis column for an existing meeting."""
     conn = get_db()
-    conn.execute(
-        "UPDATE meetings SET analysis = ? WHERE session_id = ?",
-        (analysis, session_id),
-    )
-    conn.commit()
+    with DB_LOCK:
+        conn.execute(
+            "UPDATE meetings SET analysis = ? WHERE session_id = ?",
+            (analysis, session_id),
+        )
+        conn.commit()
 
 
 def search_meetings(query: str, limit: int = 20) -> list[dict]:

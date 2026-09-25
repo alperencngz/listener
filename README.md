@@ -49,6 +49,11 @@ Nothing moves from one stage to the next without a click. Three lanes never bloc
 | Transcription run | queued `transcribe` jobs, sequentially | one job at a time, one run at a time |
 | Claude actions | `analyze` / `memory` jobs | one at a time, start immediately when you click |
 
+Within one meeting, jobs are also exclusive: if a transcription and a Claude job for the same meeting would
+overlap (for example a queued re-transcribe and an analysis started meanwhile), the second one to start is
+marked **failed** with a "Skipped" note instead of writing the meeting's files at the same time. Retry it
+once the other job has finished. "Ask" questions run in the web request itself, not through the queue.
+
 **Live transcription under contention.** Live transcription is optional and loads its own Whisper model in the recording process. To avoid two large models competing for the laptop, recording always wins: if a transcription run is active when you start a recording with live transcription, the recording starts normally and live text is skipped (the UI tells you why). Conversely, the queue refuses to run while live transcription is active; stop the recording (or record without live mode) first.
 
 Three entry points share the same pipeline code (`listener/pipeline.py`):
@@ -166,6 +171,11 @@ webhooks:
 
 Supported formats: `json`, `slack` (Block Kit), `markdown`.
 
+`session_complete` fires when a transcript has been saved by the queue (the payload's `files` includes
+`analysis` only if an analysis file already exists). Analysis and memory are explicit Claude actions and do
+not fire webhooks. Earlier versions fired this event once after title + analysis; adjust subscribers that
+expected the analysis to be attached.
+
 ## Tech stack
 
 - **Python 3.11+**, [Click](https://click.palletsprojects.com/) CLI, [Flask 3](https://flask.palletsprojects.com/)
@@ -211,7 +221,8 @@ listener/
 ## Notable design decisions
 
 - **Independent state, explicit transitions.** The web app keeps recording state, the transcription run and per-meeting job rows apart (`listener/jobs.py`). Jobs are created only by user actions and executed only by an explicit run; on startup any job left `running` by a crashed process is marked `interrupted` and waits for **Retry** — paid Claude calls are never silently re-run. Duplicate submissions and transcript overwrites are refused unless you choose **Re-transcribe**.
-- **Grounded memory, mechanically checked.** Claude returns JSON (schema-validated) for the memory bank, then `listener/memory.py` verifies every timestamp against the transcript and drops owners/deadlines that do not literally appear in it, recording what was dropped in `grounding_notes`. Transcript text is wrapped as data with an explicit "not instructions" rule. Re-generation merges to-dos by text similarity: completed/edited tasks keep their state, vanished tasks are marked stale, never deleted.
+- **One process, a few locks.** The web app shares one SQLite connection between request threads, the run thread and the Claude worker; `listener/db.py` wraps it so every statement runs (and is fully fetched) under a re-entrant lock, and multi-statement updates hold the same lock. `meta.json` merges go through `META_LOCK`, files are written via uniquely named temp files + rename, and a recording slot / session id is reserved atomically before the microphone or the live Whisper model opens, so two clicks in the same second cannot open two microphones or share an id.
+- **Grounded memory, mechanically checked.** Claude returns JSON (schema-validated) for the memory bank, then `listener/memory.py` verifies every timestamp against the transcript and drops owners/deadlines that do not appear as whole words in the spoken lines (the file header does not count), recording what was dropped in `grounding_notes`. Transcript text is wrapped as data with an explicit "not instructions" rule. Re-generation merges to-dos by text similarity: completed/edited/hand-added tasks keep their wording and state, vanished tasks are marked stale, never deleted; a generation is one transaction, so a failure mid-way leaves the previous memory untouched.
 - **Bounded cross-meeting retrieval.** "Ask" sends only the stored memory of the selected meetings (per-meeting and total character caps, meetings beyond the cap are listed as omitted), never the whole archive or raw transcripts, and answers cite meeting labels.
 - **Max-OAuth zero-cost AI.** `listener/claude/runner.py` strips `ANTHROPIC_API_KEY` from the subprocess environment so the Claude Code SDK falls back to OAuth, billing AI analysis against an existing Claude Max subscription instead of the metered API. The SDK's `parse_message` is also monkey-patched at import time (idempotently) to tolerate unknown event types like `rate_limit_event` instead of crashing the consumer loop.
 - **Local-only audio processing.** Recording, denoising, transcription, and diarization all run on-device. Only the text transcript is sent to Claude for analysis. The Flask server binds to `127.0.0.1` only and caps uploads at 2 GB.

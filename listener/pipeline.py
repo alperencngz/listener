@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +27,10 @@ from listener.jobs import JobContext, JobInterrupted
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_SIZE = "large-v3"
+
+# Serialises read-modify-write of <id>_meta.json inside this process (request
+# threads, the run thread and the Claude thread can all touch the same meta).
+META_LOCK = threading.RLock()
 
 
 class PipelineError(Exception):
@@ -86,21 +92,42 @@ def read_meta(output_dir: Path, session_id: str) -> dict:
 
 
 def write_meta(output_dir: Path, session_id: str, meta: dict) -> None:
-    atomic_write_text(session_paths(output_dir, session_id)["meta"], json.dumps(meta, ensure_ascii=False, indent=2))
+    with META_LOCK:
+        atomic_write_text(session_paths(output_dir, session_id)["meta"],
+                          json.dumps(meta, ensure_ascii=False, indent=2))
 
 
-def update_meta(output_dir: Path, session_id: str, **fields) -> dict:
-    """Merge fields into meta.json without dropping what is already there."""
-    meta = read_meta(output_dir, session_id)
-    meta.update(fields)
-    write_meta(output_dir, session_id, meta)
+def update_meta(output_dir: Path, session_id: str, *, defaults: dict | None = None, **fields) -> dict:
+    """Merge fields into meta.json without dropping what is already there.
+
+    ``defaults`` are only applied to keys that are missing or empty (used to
+    keep a user-given title). The read-modify-write runs under ``META_LOCK`` so
+    concurrent updates from different threads cannot drop each other's fields.
+    """
+    with META_LOCK:
+        meta = read_meta(output_dir, session_id)
+        for key, value in (defaults or {}).items():
+            if not meta.get(key):
+                meta[key] = value
+        meta.update(fields)
+        write_meta(output_dir, session_id, meta)
     return meta
 
 
 def atomic_write_text(path: Path, text: str) -> None:
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
+    """Write via a uniquely named temp file in the same directory, then rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def default_title(session_id: str) -> str:
@@ -167,9 +194,9 @@ def run_transcribe_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
     if fresh:
         _clear_checkpoints(paths)
 
-    # 1. Noise reduction (cached in <id>_cleaned.wav)
+    # 1. Noise reduction (cached in <id>_cleaned.wav; ignored when denoise is off)
     transcribe_path = paths["audio"]
-    if paths["cleaned"].exists():
+    if denoise and paths["cleaned"].exists():
         transcribe_path = paths["cleaned"]
     elif denoise:
         ctx.set_stage("denoising")
@@ -240,11 +267,7 @@ def run_transcribe_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
     )
     atomic_write_text(paths["transcript"], transcript_md)
 
-    meta = read_meta(output_dir, session_id)
-    meta.setdefault("title", default_title(session_id))
-    if not meta.get("title"):
-        meta["title"] = default_title(session_id)
-    meta.update({
+    fields = {
         "language": result.language,
         "language_probability": result.language_probability,
         "duration": result.duration,
@@ -252,9 +275,9 @@ def run_transcribe_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
         "model_size": model_size,
         "diarized": diarized,
         "denoised": transcribe_path == paths["cleaned"],
-    })
+    }
     speaker_info: dict = {}
-    analytics_data: dict = meta.get("analytics", {}) or {}
+    analytics_data: dict = read_meta(output_dir, session_id).get("analytics", {}) or {}
     if result.has_speakers:
         from listener.diarizer import compute_talk_times
         speaker_info = {
@@ -266,9 +289,9 @@ def run_transcribe_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
             analytics_data = compute_analytics(result.segments, result.duration).to_dict()
         except Exception as exc:  # noqa: BLE001
             logger.warning("Analytics failed for %s: %s", session_id, exc)
-    meta["speakers"] = speaker_info
-    meta["analytics"] = analytics_data
-    write_meta(output_dir, session_id, meta)
+    fields["speakers"] = speaker_info
+    fields["analytics"] = analytics_data
+    meta = update_meta(output_dir, session_id, defaults={"title": default_title(session_id)}, **fields)
 
     # 5. Search index (local SQLite)
     try:
@@ -325,19 +348,20 @@ def run_analyze_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
     ctx.set_stage("saving")
     atomic_write_text(paths["analysis"], analysis_md)
 
-    meta["recipe_id"] = recipe_id
-    meta["analyzed_at"] = datetime.now().isoformat(timespec="seconds")
-    analytics_data = meta.get("analytics") or {}
-    if analytics_data:
-        try:
-            from listener.analytics import extract_topics_from_analysis
-            topics = extract_topics_from_analysis(analysis)
-            if topics:
-                analytics_data["topics"] = topics
-                meta["analytics"] = analytics_data
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Topic extraction failed for %s: %s", session_id, exc)
-    write_meta(output_dir, session_id, meta)
+    fields = {"recipe_id": recipe_id, "analyzed_at": datetime.now().isoformat(timespec="seconds")}
+    with META_LOCK:  # topics are merged into the analytics dict written by the transcribe job
+        meta = read_meta(output_dir, session_id)
+        analytics_data = meta.get("analytics") or {}
+        if analytics_data:
+            try:
+                from listener.analytics import extract_topics_from_analysis
+                topics = extract_topics_from_analysis(analysis)
+                if topics:
+                    analytics_data["topics"] = topics
+                    fields["analytics"] = analytics_data
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Topic extraction failed for %s: %s", session_id, exc)
+        update_meta(output_dir, session_id, **fields)
 
     try:
         index_session(output_dir, session_id, transcript_text)

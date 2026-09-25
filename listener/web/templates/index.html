@@ -2379,7 +2379,8 @@ function renderMd(md){
 }
 
 function il(s){
-  return s
+  // Escape first: model output and transcript text are data, never markup.
+  return esc(s)
     .replace(/\*\*(.*?)\*\*/g, function(m, inner) {
       // Check if this is a speaker label like "[00:15] Speaker 1:"
       var spkMatch = inner.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s+(Speaker\s+(\d+)|Unknown):/);
@@ -3370,7 +3371,7 @@ async function doSearch(){
       return `<div class="sr-item" onclick="searchClickSession('${esc(r.session_id)}')">
         <div class="sr-title">${esc(title)}</div>
         <div class="sr-meta">${esc(date)}${dur}${lang}</div>
-        ${r.snippet ? '<div class="sr-snippet">...'+r.snippet+'...</div>' : ''}
+        ${r.snippet ? '<div class="sr-snippet">...'+safeSnippet(r.snippet)+'...</div>' : ''}
       </div>`;
     }).join('');
   }catch(e){

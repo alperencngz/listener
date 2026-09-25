@@ -478,3 +478,213 @@ def test_pipeline_atomic_writes_and_helpers(tmp_path):
     pipeline.update_meta(tmp_path, sid, language="tr")
     assert pipeline.read_meta(tmp_path, sid) == {"title": "x", "language": "tr"}
     assert not list(tmp_path.glob("*.tmp"))
+
+
+# ---------------------------------------------------------------------------
+# Review regressions: atomic slot reservation, per-meeting exclusivity, stop
+# after completion, meta write safety, import id collisions, denoise flag
+# ---------------------------------------------------------------------------
+
+def test_concurrent_starts_open_exactly_one_recorder(client, isolated_env, monkeypatch):
+    """Two /api/start requests in flight: one 200, one 409, one microphone opened."""
+    import listener.web.app as webapp
+
+    def slow_start(self, output_path):
+        time.sleep(0.3)  # widen the window between the check and the recorder opening
+        self.path = output_path
+        _write_wav(output_path)
+
+    monkeypatch.setattr(FakeRecorder, "start", slow_start)
+    results = []
+
+    def go():
+        c = webapp.app.test_client()
+        r = c.post("/api/start", json={"device": None})
+        results.append((r.status_code, r.get_json()))
+
+    threads = [threading.Thread(target=go) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=5)
+    assert sorted(code for code, _ in results) == [200, 409], results
+    assert len(FakeRecorder.instances) == 1
+    assert client.post("/api/stop").status_code == 200
+    assert FakeRecorder.instances[0].stopped
+
+
+def test_run_refused_while_live_model_is_still_loading(client, isolated_env, transcribe_mock, monkeypatch):
+    """The live intent is visible before the Whisper model finishes loading (no TOCTOU)."""
+    import listener.streaming as streaming
+    import listener.web.app as webapp
+
+    entered, release = threading.Event(), threading.Event()
+
+    class SlowStreamer:
+        def __init__(self, model_size="large-v3", language=None):
+            pass
+
+        def start(self):
+            entered.set()
+            release.wait(timeout=5)
+
+        def stop(self):
+            pass
+
+        def feed_audio(self, *a):
+            pass
+
+    monkeypatch.setattr(streaming, "StreamingTranscriber", SlowStreamer)
+    sid = _make_audio_session(isolated_env)
+    client.post("/api/queue", json={"session_id": sid})
+
+    out = {}
+
+    def go():
+        out["r"] = webapp.app.test_client().post("/api/start", json={"live_transcription": True})
+
+    t = threading.Thread(target=go)
+    t.start()
+    assert entered.wait(timeout=5)
+    # While the live model loads: the run is refused, a second start is refused, stop says "starting"
+    r = client.post("/api/queue/run", json={})
+    assert r.status_code == 409 and "Live transcription" in r.get_json()["error"]
+    assert client.post("/api/start", json={}).status_code == 409
+    assert client.post("/api/stop").status_code == 409
+    assert _status(client)["recording"]["active"] is True
+    assert transcribe_mock["calls"] == []  # no Whisper job started underneath the live model
+    release.set()
+    t.join(timeout=5)
+    assert out["r"].status_code == 200 and out["r"].get_json()["live"] is True
+    assert client.post("/api/stop").status_code == 200
+    assert client.post("/api/queue/run", json={}).status_code == 200
+
+
+def test_transcribe_is_skipped_while_analyze_runs_for_same_meeting(client, isolated_env, transcribe_mock,
+                                                                   monkeypatch):
+    """Two jobs never write one meeting's files at the same time; the loser fails visibly."""
+    env = isolated_env
+    sid = _make_audio_session(env)
+    jid = client.post("/api/queue", json={"session_id": sid}).get_json()["job"]["id"]
+    client.post("/api/queue/run", json={})
+    assert _wait(lambda: _job(client, jid)["status"] == "done")
+
+    gate = threading.Event()
+
+    def slow_analyze(text, model="claude-sonnet-4-5", recipe_id=None):
+        gate.wait(timeout=5)
+        return "## Summary\nok\n"
+
+    monkeypatch.setattr("listener.analyzer.analyze_transcript_sync", slow_analyze)
+    # re-transcribe queued first, then an analysis starts immediately in the Claude lane
+    rj = client.post("/api/queue", json={"session_id": sid, "overwrite": True}).get_json()["job"]["id"]
+    aj = client.post(f"/api/analyze/{sid}", json={}).get_json()["job"]["id"]
+    assert _wait(lambda: _job(client, aj)["status"] == "running")
+    assert client.post("/api/queue/run", json={}).status_code == 200
+    assert _wait(lambda: _job(client, rj)["status"] == "failed")
+    assert "Skipped" in _job(client, rj)["error"] and "analyze" in _job(client, rj)["error"]
+    assert len(transcribe_mock["calls"]) == 1  # the re-transcribe never touched Whisper
+    gate.set()
+    assert _wait(lambda: _job(client, aj)["status"] == "done")
+    # explicit retry works once the meeting is free
+    assert client.post(f"/api/queue/{rj}/retry").get_json()["job"]["status"] == "queued"
+    client.post("/api/queue/run", json={})
+    assert _wait(lambda: _job(client, rj)["status"] == "done")
+    assert len(transcribe_mock["calls"]) == 2
+
+
+def test_stop_request_after_work_finished_keeps_the_result(client, isolated_env, transcribe_mock, monkeypatch):
+    """Stop pressed during the final 'saving' step must not turn a finished job into 'interrupted'."""
+    import listener.web.app as webapp
+
+    env = isolated_env
+    sid = _make_audio_session(env)
+    jid = client.post("/api/queue", json={"session_id": sid}).get_json()["job"]["id"]
+    real_index = pipeline.index_session
+
+    def index_then_stop(*a, **k):
+        webapp._runner.stop_run()  # stop arrives after the transcript is already written
+        return real_index(*a, **k)
+
+    monkeypatch.setattr(pipeline, "index_session", index_then_stop)
+    client.post("/api/queue/run", json={})
+    assert _wait(lambda: _job(client, jid)["status"] in ("done", "interrupted"))
+    assert _job(client, jid)["status"] == "done"
+    assert (env["transcripts_dir"] / f"{sid}_transcript.md").exists()
+    assert _wait(lambda: not _status(client)["run"]["active"])
+
+
+def test_update_meta_is_safe_under_concurrent_writers(tmp_path):
+    sid = "2026-03-04_05-06-07"
+    pipeline.update_meta(tmp_path, sid, title="keep me")
+    errors = []
+
+    def writer(i):
+        try:
+            for _ in range(5):
+                pipeline.update_meta(tmp_path, sid, **{f"k{i}": i})
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=writer, args=(i,)) for i in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+    assert errors == []
+    meta = pipeline.read_meta(tmp_path, sid)
+    assert meta["title"] == "keep me"
+    assert all(meta.get(f"k{i}") == i for i in range(12))
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_concurrent_imports_get_distinct_session_ids(client, isolated_env):
+    import io
+    import listener.web.app as webapp
+
+    wav = isolated_env["transcripts_dir"] / "_src.wav"
+    _write_wav(wav)
+    payload = wav.read_bytes()
+    wav.unlink()
+    results = []
+
+    def go(name):
+        c = webapp.app.test_client()
+        r = c.post("/api/import", data={"audio": (io.BytesIO(payload), name)},
+                   content_type="multipart/form-data")
+        results.append(r.get_json())
+
+    threads = [threading.Thread(target=go, args=(f"meeting-{i}.wav",)) for i in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=5)
+    ids = [r["session_id"] for r in results]
+    assert len(set(ids)) == 3, ids
+    for r in results:
+        assert (isolated_env["transcripts_dir"] / f"{r['session_id']}.wav").exists()
+        meta = json.loads((isolated_env["transcripts_dir"] / f"{r['session_id']}_meta.json").read_text())
+        assert meta["source"] == "import" and meta["title"] == r["title"]
+
+
+def test_denoise_off_uses_the_original_audio(client, isolated_env, transcribe_mock):
+    env = isolated_env
+    sid = _make_audio_session(env)
+    _write_wav(env["transcripts_dir"] / f"{sid}_cleaned.wav")  # cached denoised file exists
+    jid = client.post("/api/queue", json={"session_id": sid, "denoise": False}).get_json()["job"]["id"]
+    client.post("/api/queue/run", json={})
+    assert _wait(lambda: _job(client, jid)["status"] == "done")
+    assert transcribe_mock["calls"][-1]["audio_path"].endswith(f"{sid}.wav")
+    meta = json.loads((env["transcripts_dir"] / f"{sid}_meta.json").read_text())
+    assert meta["denoised"] is False
+    # default (denoise on) reuses the cached cleaned file
+    jid2 = client.post("/api/queue", json={"session_id": sid, "overwrite": True}).get_json()["job"]["id"]
+    client.post("/api/queue/run", json={})
+    assert _wait(lambda: _job(client, jid2)["status"] == "done")
+    assert transcribe_mock["calls"][-1]["audio_path"].endswith(f"{sid}_cleaned.wav")
+
+
+def test_run_rejects_malformed_job_ids(client, isolated_env):
+    r = client.post("/api/queue/run", json={"job_ids": [1, None]})
+    assert r.status_code == 400 and "job id" in r.get_json()["error"].lower()
+    assert client.post("/api/queue/run", json={"job_ids": "abc"}).status_code == 400

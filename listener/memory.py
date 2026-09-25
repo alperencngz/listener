@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import sqlite3
+import tempfile
 import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -359,8 +360,17 @@ Memory for {count} meeting(s). Each block starts with "### <label>"; cite that l
 {question}"""
 
 
+_DATA_TAG_RE = re.compile(r"</?\s*(transcript|meeting_memory)\s*>", re.IGNORECASE)
+
+
+def _neutralise_tags(text: str) -> str:
+    """Stop transcript/memory text from closing the data block it is wrapped in."""
+    return _DATA_TAG_RE.sub(lambda m: m.group(0).replace("<", "\u2039").replace(">", "\u203a"), text)
+
+
 def build_generation_prompt(transcript_text: str, title: str, language: str) -> tuple[str, str]:
     """Return (system_prompt, user_prompt) for a memory generation call."""
+    transcript_text = _neutralise_tags(transcript_text)
     user_prompt = GENERATION_USER_TEMPLATE.format(
         title=title.strip() or "(untitled)",
         language=language.strip() or "unknown",
@@ -388,13 +398,33 @@ def _line_index(transcript_text: str) -> dict[float, dict]:
     return index
 
 
+def _grounding_haystack(transcript_text: str) -> str:
+    """Casefolded spoken text (speaker labels + lines); the file header is excluded.
+
+    Falls back to everything after the header for transcripts without
+    timestamped lines, so plain-text imports can still ground owners/deadlines.
+    """
+    lines = parse_transcript_lines(transcript_text)
+    if lines:
+        body = "\n".join(f"{line['speaker']} {line['text']}" for line in lines)
+    else:
+        body = "\n".join(_after_header(transcript_text.splitlines()))
+    return body.casefold()
+
+
 def _grounded_value(label: str, field: str, value: object, haystack: str, notes: list[str]) -> str | None:
-    """Keep a string only if it literally appears in the transcript (casefold)."""
+    """Keep a string only if it appears as whole words in the spoken transcript (casefold).
+
+    Whole-word matching stops "12m" grounding on "12min" and "Al" on "Alper";
+    single characters and pure punctuation never ground.
+    """
     text = str(value).strip() if value else ""
     if not text:
         return None
-    if text.casefold() in haystack:
-        return text
+    needle = text.casefold()
+    if len(needle) >= 2 and re.search(r"\w", needle):
+        if re.search(r"(?<!\w)" + re.escape(needle) + r"(?!\w)", haystack):
+            return text
     notes.append(f"{label}: {field} {text!r} not found in transcript; dropped")
     return None
 
@@ -429,7 +459,7 @@ def ground_memory(parsed: dict, transcript_text: str) -> tuple[dict, list[str]]:
     verbatim (casefold) in the transcript or they are nulled. Every drop is noted.
     """
     lines = _line_index(transcript_text)
-    haystack = transcript_text.casefold()
+    haystack = _grounding_haystack(transcript_text)
     notes: list[str] = []
     grounded: dict = {"summary": str(parsed.get("summary") or "").strip()}
     for section in ("key_points", "decisions", "tasks", "open_questions"):
@@ -498,7 +528,7 @@ def _apply_ai_to_task(conn: sqlite3.Connection, task: dict, ai: dict, generation
         "ts": ai.get("ts"), "evidence": ai.get("evidence", ""), "verified": int(bool(ai.get("verified"))),
         "stale": 0, "last_seen_generation": generation_no, "updated_at": now,
     }
-    if not task["manual_edited"]:
+    if not task["manual_edited"] and not task["manual_added"]:
         fields["text"] = ai["text"]
         if ai.get("owner"):
             fields["owner"] = ai["owner"]
@@ -530,23 +560,30 @@ def merge_tasks(session_id: str, ai_tasks: list[dict], generation_no: int, now: 
     """
     with DB_LOCK:
         conn = _conn()
-        existing = [_task_from_row(r) for r in conn.execute(
-            "SELECT * FROM memory_tasks WHERE session_id = ? ORDER BY created_at, rowid", (session_id,)
-        )]
-        pairs = _match_tasks(ai_tasks, existing)
-        for i, j in pairs:
-            _apply_ai_to_task(conn, existing[j], ai_tasks[i], generation_no, now)
-        matched_ai = {i for i, _ in pairs}
-        matched_existing = {j for _, j in pairs}
-        for i, ai in enumerate(ai_tasks):
-            if i not in matched_ai:
-                _insert_ai_task(conn, session_id, ai, generation_no, now)
-        stale = 0
-        for j, task in enumerate(existing):
-            if j not in matched_existing and not task["manual_added"]:
-                _update_row(conn, "memory_tasks", task["id"], {"stale": 1, "updated_at": now})
-                stale += 1
+        stats = _merge_tasks_locked(conn, session_id, ai_tasks, generation_no, now)
         conn.commit()
+    return stats
+
+
+def _merge_tasks_locked(conn: sqlite3.Connection, session_id: str, ai_tasks: list[dict],
+                        generation_no: int, now: str) -> dict:
+    """Body of :func:`merge_tasks`; caller holds ``DB_LOCK`` and commits."""
+    existing = [_task_from_row(r) for r in conn.execute(
+        "SELECT * FROM memory_tasks WHERE session_id = ? ORDER BY created_at, rowid", (session_id,)
+    )]
+    pairs = _match_tasks(ai_tasks, existing)
+    for i, j in pairs:
+        _apply_ai_to_task(conn, existing[j], ai_tasks[i], generation_no, now)
+    matched_ai = {i for i, _ in pairs}
+    matched_existing = {j for _, j in pairs}
+    for i, ai in enumerate(ai_tasks):
+        if i not in matched_ai:
+            _insert_ai_task(conn, session_id, ai, generation_no, now)
+    stale = 0
+    for j, task in enumerate(existing):
+        if j not in matched_existing and not task["manual_added"]:
+            _update_row(conn, "memory_tasks", task["id"], {"stale": 1, "updated_at": now})
+            stale += 1
     return {"inserted": len(ai_tasks) - len(pairs), "updated": len(pairs), "stale": stale}
 
 
@@ -624,7 +661,7 @@ def update_task(task_id: str, *, text: str | None = None, owner: str | None = No
             fields["updated_at"] = _now()
             _update_row(conn, "memory_tasks", task_id, fields)
             conn.commit()
-        if "text" in fields:
+        if any(key in fields for key in ("text", "owner", "deadline")):
             _rebuild_fts(task["session_id"])
         return _get_task(conn, task_id)
 
@@ -754,13 +791,18 @@ def _start_generation(session_id: str, model: str, sha: str) -> int:
         return int(cursor.lastrowid)
 
 
+def _finish_generation_locked(conn: sqlite3.Connection, generation_id: int, status: str, *,
+                              error: str = "", raw_response: str = "") -> None:
+    conn.execute(
+        "UPDATE memory_generations SET finished_at = ?, status = ?, error = ?, raw_response = ? WHERE id = ?",
+        (_now(), status, error, raw_response, generation_id),
+    )
+
+
 def _finish_generation(generation_id: int, status: str, *, error: str = "", raw_response: str = "") -> None:
     with DB_LOCK:
         conn = _conn()
-        conn.execute(
-            "UPDATE memory_generations SET finished_at = ?, status = ?, error = ?, raw_response = ? WHERE id = ?",
-            (_now(), status, error, raw_response, generation_id),
-        )
+        _finish_generation_locked(conn, generation_id, status, error=error, raw_response=raw_response)
         conn.commit()
 
 
@@ -811,14 +853,18 @@ def _fts_content(conn: sqlite3.Connection, session_id: str) -> str:
     return "\n".join(part for part in parts if part)
 
 
+def _rebuild_fts_locked(conn: sqlite3.Connection, session_id: str) -> None:
+    content = _fts_content(conn, session_id)
+    conn.execute("DELETE FROM memory_fts WHERE session_id = ?", (session_id,))
+    if content:
+        conn.execute("INSERT INTO memory_fts (session_id, content) VALUES (?, ?)", (session_id, content))
+
+
 def _rebuild_fts(session_id: str) -> None:
     """Replace the single FTS row for a session with fresh content."""
     with DB_LOCK:
         conn = _conn()
-        content = _fts_content(conn, session_id)
-        conn.execute("DELETE FROM memory_fts WHERE session_id = ?", (session_id,))
-        if content:
-            conn.execute("INSERT INTO memory_fts (session_id, content) VALUES (?, ?)", (session_id, content))
+        _rebuild_fts_locked(conn, session_id)
         conn.commit()
 
 
@@ -887,18 +933,22 @@ def generate_memory(session_id: str, transcript_text: str, *, title: str = "", l
         grounded, notes = ground_memory(parsed, transcript_text)
         now = _now()
         transcript_path = str(transcripts_dir / f"{session_id}_transcript.md") if transcripts_dir else ""
+        # One transaction: memory body, task merge, search index and the
+        # generation row land together or not at all.
         with DB_LOCK:
             conn = _conn()
-            generation_no = _upsert_memory(
-                conn, session_id, grounded, notes, title=title, language=language, sha=sha,
-                transcript_path=transcript_path, model=model, now=now,
-            )
-            merge_tasks(session_id, grounded["tasks"], generation_no, now)
-            _rebuild_fts(session_id)
-            _finish_generation(generation_id, "ok", raw_response=_dumps(parsed))
-        record = get_memory(session_id)
-        if transcripts_dir is not None:
-            write_memory_files(transcripts_dir, record)
+            try:
+                generation_no = _upsert_memory(
+                    conn, session_id, grounded, notes, title=title, language=language, sha=sha,
+                    transcript_path=transcript_path, model=model, now=now,
+                )
+                _merge_tasks_locked(conn, session_id, grounded["tasks"], generation_no, now)
+                _rebuild_fts_locked(conn, session_id)
+                _finish_generation_locked(conn, generation_id, "ok", raw_response=_dumps(parsed))
+                conn.commit()
+            except BaseException:
+                conn.rollback()
+                raise
     except Exception as exc:
         logger.error("Memory generation failed for %s: %s", session_id, exc)
         try:
@@ -906,6 +956,16 @@ def generate_memory(session_id: str, transcript_text: str, *, title: str = "", l
         except Exception:  # pragma: no cover - DB failure while recording a failure
             logger.exception("Could not record failed generation %s", generation_id)
         raise MemoryGenerationError(str(exc)) from exc
+    record = get_memory(session_id)
+    if transcripts_dir is not None:
+        try:
+            write_memory_files(transcripts_dir, record)
+        except OSError as exc:
+            # The memory is stored; only the inspectable files are missing. Say so
+            # on the generation row instead of pretending the generation failed.
+            logger.warning("Memory files for %s could not be written: %s", session_id, exc)
+            _finish_generation(generation_id, "ok", raw_response=_dumps(parsed),
+                               error=f"Memory stored, but the files could not be written: {exc}")
     return record
 
 
@@ -922,9 +982,17 @@ def memory_file_paths(transcripts_dir: Path, session_id: str) -> tuple[Path, Pat
 
 def _write_atomic(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def write_memory_files(transcripts_dir: Path, record: dict) -> tuple[Path, Path]:
@@ -1029,12 +1097,10 @@ def create_project(name: str, session_ids: Iterable[str] = ()) -> dict:
     project_id = _new_id()
     with DB_LOCK:
         conn = _conn()
-        try:
-            conn.execute("INSERT INTO memory_projects (id, name, created_at) VALUES (?, ?, ?)",
-                         (project_id, name, _now()))
-        except sqlite3.IntegrityError as exc:
-            conn.rollback()
-            raise ValueError(f"project name already exists: {name}") from exc
+        if conn.execute("SELECT 1 FROM memory_projects WHERE name = ?", (name,)).fetchone():
+            raise ValueError(f"project name already exists: {name}")
+        conn.execute("INSERT INTO memory_projects (id, name, created_at) VALUES (?, ?, ?)",
+                     (project_id, name, _now()))
         _replace_project_meetings(conn, project_id, session_ids)
         conn.commit()
     return get_project(project_id)
@@ -1258,7 +1324,8 @@ def _build_ask_prompt(question: str, meetings: list[dict]) -> str:
     blocks = []
     for meeting in meetings:
         note = f"(source: {meeting['source']}" + (", truncated)" if meeting["truncated"] else ")")
-        blocks.append(f"### {_label(meeting['date'], meeting['title'])}\n{note}\n{meeting['text']}")
+        blocks.append(f"### {_label(meeting['date'], meeting['title'])}\n{note}\n"
+                      f"{_neutralise_tags(meeting['text'])}")
     return ASK_USER_TEMPLATE.format(count=len(meetings), context="\n\n".join(blocks), question=question.strip())
 
 

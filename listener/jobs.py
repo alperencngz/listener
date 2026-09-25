@@ -76,13 +76,23 @@ class JobInterrupted(Exception):
 # Schema
 # ---------------------------------------------------------------------------
 
-_schema_ready = False
+_schema_conn = None  # connection the schema was last ensured on
 
 
 def ensure_schema() -> None:
-    global _schema_ready
+    """Create the jobs table once per connection.
+
+    ``executescript`` implicitly COMMITs, so this must not run on every call:
+    it would commit statements other threads have pending on the shared
+    connection. Tests swap the DB, so the check is keyed on the connection.
+    """
+    global _schema_conn
     conn = get_db()
+    if conn is _schema_conn:
+        return
     with DB_LOCK:
+        if conn is _schema_conn:
+            return
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS jobs (
                 id          TEXT PRIMARY KEY,
@@ -105,7 +115,7 @@ def ensure_schema() -> None:
             CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status);
         """)
         conn.commit()
-    _schema_ready = True
+        _schema_conn = conn
 
 
 def _now() -> str:
@@ -240,7 +250,7 @@ def retry_job(job_id: str) -> dict:
         if row["status"] not in RETRYABLE_STATUSES:
             raise JobError(f"Only failed or interrupted jobs can be retried (status: {row['status']}).")
         conn.execute(
-            "UPDATE jobs SET status = 'queued', stage = '', error = '', run_id = '', "
+            "UPDATE jobs SET status = 'queued', stage = '', error = '', run_id = '', progress = '{}', "
             "started_at = NULL, finished_at = NULL, updated_at = ? WHERE id = ?",
             (_now(), job_id),
         )
@@ -271,15 +281,43 @@ def _update(job_id: str, **fields) -> None:
         conn.commit()
 
 
-def mark_running(job_id: str, run_id: str = "") -> None:
+def claim_job(job_id: str, run_id: str = "") -> str | None:
+    """Atomically move a queued job to ``running``.
+
+    Returns ``None`` on success, or a reason string when the job cannot start:
+    it is no longer queued, or another job for the same meeting is running
+    (two jobs must never write one meeting's files at the same time).
+    """
     conn = get_db()
     with DB_LOCK:
+        row = conn.execute("SELECT session_id, status FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            return "Job no longer exists."
+        if row["status"] != "queued":
+            return f"Job is {row['status']}, not queued."
+        busy = conn.execute(
+            "SELECT kind FROM jobs WHERE session_id = ? AND status = 'running' AND id != ? LIMIT 1",
+            (row["session_id"], job_id),
+        ).fetchone()
+        if busy:
+            return (
+                f"Skipped: this meeting's {busy['kind']} job was still running. "
+                "Retry once it has finished."
+            )
         conn.execute(
-            "UPDATE jobs SET status = 'running', stage = 'starting', error = '', run_id = ?, "
+            "UPDATE jobs SET status = 'running', stage = 'starting', error = '', run_id = ?, progress = '{}', "
             "attempts = attempts + 1, started_at = ?, finished_at = NULL, updated_at = ? WHERE id = ?",
             (run_id, _now(), _now(), job_id),
         )
         conn.commit()
+    return None
+
+
+def mark_running(job_id: str, run_id: str = "") -> None:
+    """Unconditional variant of :func:`claim_job` (kept for callers that already checked)."""
+    reason = claim_job(job_id, run_id)
+    if reason:
+        raise JobError(reason)
 
 
 def set_stage(job_id: str, stage: str) -> None:
@@ -394,7 +432,9 @@ class JobRunner:
         ensure_schema()
         queued = _queued_transcription_jobs()
         if job_ids is not None:
-            wanted = [jid for jid in job_ids]
+            if not all(isinstance(jid, str) and jid for jid in job_ids):
+                raise JobError("job_ids must be a list of job id strings.")
+            wanted = list(dict.fromkeys(job_ids))  # de-duplicate, keep order
             by_id = {j["id"]: j for j in queued}
             missing = [jid for jid in wanted if jid not in by_id]
             if missing:
@@ -425,8 +465,9 @@ class JobRunner:
                 name=f"listener-run-{run_id}", daemon=True,
             )
             self._run_thread = thread
+            snapshot = dict(self._run)
         thread.start()
-        return dict(self._run)
+        return snapshot
 
     def stop_run(self) -> bool:
         with self._lock:
@@ -498,6 +539,14 @@ class JobRunner:
                 if target is not None:
                     target["stage"] = stage
 
+        # Claim first: refuses if another job for the same meeting is running.
+        reason = claim_job(job_id, run_id)
+        if reason:
+            if reason.startswith("Skipped"):
+                logger.warning("Job %s (%s) not started: %s", job_id, job["kind"], reason)
+                mark_failed(job_id, reason)
+            return
+
         with self._lock:
             info = {
                 "current_job_id": job_id, "current_session_id": job["session_id"],
@@ -509,16 +558,14 @@ class JobRunner:
                 self._claude_current = info
 
         cancel = self._cancel if lane == "run" else threading.Event()
-        mark_running(job_id, run_id)
         ctx = _Context(job_id, cancel, on_stage)
         try:
             if executor is None:
                 raise JobError(f"No executor registered for kind '{job['kind']}'")
             result = executor(job, ctx)
-            if cancel.is_set():
-                mark_interrupted(job_id)
-            else:
-                mark_done(job_id, result or {})
+            # A stop request that arrived after the work finished does not undo it:
+            # the executor only raises JobInterrupted when it actually stopped early.
+            mark_done(job_id, result or {})
         except JobInterrupted as exc:
             mark_interrupted(job_id, str(exc) or INTERRUPTED_BY_USER)
         except Exception as exc:  # noqa: BLE001 - job failures are reported, not raised
