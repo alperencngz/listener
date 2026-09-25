@@ -14,40 +14,50 @@ Audio and transcripts never leave the machine. The only network call is the anal
 
 ## Features
 
-- **Speech-to-Text** — faster-whisper `large-v3` with auto language detection, VAD filter, word-level timestamps. Resumable via per-segment JSON checkpoints, so a 1-hour transcription survives Ctrl+C or laptop sleep.
-- **Speaker Diarization** — pyannote-audio 3.1, aligned to Whisper segments with a max-overlap routine and deterministic friendly labels (Speaker 1, Speaker 2, ...).
-- **AI Analysis** — Claude generates summaries, action items, decisions, and key topics. Same-language output enforced (transcript in Turkish → analysis in Turkish).
-- **Chat with Transcript** — ask questions about a recording with cited `[HH:MM:SS]` timestamps.
-- **Custom Analysis Recipes** — 8 built-in templates (sales call, sprint retro, 1:1, customer discovery, interview debrief, decision log, email draft, standard summary) plus user-defined YAML recipes from `~/.listener/recipes/`.
-- **Full-Text Search** — SQLite FTS5 across all meetings with BM25-weighted ranking (title 10×, analysis 5×, transcript 1×) and `<mark>`-highlighted snippets. Unicode-aware tokenizer handles Turkish diacritics.
-- **Click-to-Seek Audio** — click any timestamp in the web UI to jump the audio player to that moment.
-- **Multi-Format Export** — DOCX, PDF (with bundled DejaVu fonts for Unicode/Turkish), SRT, JSON.
-- **Noise Reduction** — `noisereduce` non-stationary preprocessing for noisy environments.
-- **Meeting Analytics** — per-speaker talk-time, turn counts, silence ratio, with Chart.js visualizations.
-- **Real-Time Live Transcription** — see text appear as people speak via Server-Sent Events (5s window, 2s overlap, finalized-vs-tentative segment separation, Jaccard dedup).
-- **Webhooks** — JSON, Slack Block Kit, or Markdown payloads fired on `session_complete`, parallel delivery with 15s aggregate timeout.
+- **Record while transcribing** — recording, the processing queue and each meeting's job state are independent. Start recording meeting B while meeting A is still being transcribed. One microphone recording at a time; one transcription job at a time.
+- **Manual processing queue** — stopping a recording or importing audio only saves the file. You choose which recordings to queue, then press **Run queued** or **Run selected**. Jobs run one after another; jobs added during a run wait for the next run. Queue state lives in SQLite and survives refreshes and restarts; interrupted jobs stay visible and need an explicit **Retry**.
+- **Explicit Claude actions only** — transcription never calls Claude. Recipe analysis (**Analyze with Claude**) and meeting memory (**Generate memory** / **Update memory**) are buttons you press per meeting.
+- **Meeting memory bank** — a grounded, inspectable record per meeting: summary, key points, decisions with rationale, to-dos with owner/deadline, open questions, each tied to transcript timestamps. Stored in SQLite and mirrored to `<id>_memory.md` / `.json`. Manual edits and completed to-dos survive re-generation; nothing is deleted by the AI.
+- **Ask across meetings** — search or pick meetings (or save a project grouping) and ask Claude to summarise shared context, recall decisions or list outstanding work. Only the stored memory of the selected meetings is sent (bounded), and answers cite the source meetings.
+- **Speech-to-Text** — faster-whisper `large-v3` with auto language detection or per-window mixed Turkish/English detection, VAD filter, word-level timestamps. Resumable via per-segment JSON checkpoints; a stopped or interrupted job resumes from the checkpoint on retry.
+- **Speaker Diarization** — pyannote-audio 3.1 (optional, needs a HuggingFace token), aligned to Whisper segments with deterministic labels (Speaker 1, Speaker 2, ...).
+- **Chat with Transcript** — ask questions about one recording with cited `[HH:MM:SS]` timestamps.
+- **Custom Analysis Recipes** — 8 built-in templates plus user-defined YAML recipes from `~/.listener/recipes/`.
+- **Full-Text Search** — SQLite FTS5 across all meetings (and across meeting memory) with BM25 ranking and highlighted snippets. Unicode-aware tokenizer handles Turkish diacritics.
+- **Click-to-Seek Audio**, **Multi-Format Export** (DOCX, PDF, SRT, JSON), **Noise Reduction**, **Meeting Analytics**, **Real-Time Live Transcription** (optional), **Webhooks** — unchanged from earlier versions.
 
-## Architecture
+## How a meeting flows through Listener
 
 ```
-Recorder (sounddevice)
-  └─> Noise Reduction (noisereduce)            [optional]
-       └─> Transcription (faster-whisper large-v3, resumable)
-            └─> Speaker Diarization (pyannote-audio 3.1)  [optional]
-                 └─> Title Generation (Claude Code SDK)
-                      └─> Analytics (talk time, turns, silence ratio)
-                           └─> Recipe Analysis (Claude Code SDK)  [optional]
-                                └─> Files (.md / .json / .wav) + SQLite FTS5 index
-                                     └─> Webhook fan-out (JSON / Slack / Markdown)
+Record (mic)  ──stop──▶  saved WAV + meta        ─┐
+Import audio  ──────────▶  saved WAV + meta        ├─▶  "Add to queue"  ──▶  Processing queue (SQLite)
+                                                    │                          │
+                                                    │        you press "Run queued" / "Run selected"
+                                                    │                          ▼
+                                                    │   denoise → Whisper (resumable) → diarize → transcript + index
+                                                    │                          │
+                                                    │        you press "Analyze with Claude" / "Generate memory"
+                                                    │                          ▼
+                                                    └──────────▶   analysis.md   /   memory bank (SQLite + memory.md)
 ```
 
-Three entry points share the same pipeline:
+Nothing moves from one stage to the next without a click. Three lanes never block each other:
 
-- **CLI** (`listener record`, `listener transcribe`, ...) — Click-based, 9 subcommands.
-- **Flask web app** (`listener web`) — 25+ JSON endpoints + 1 SSE stream, single-file 2.5k-line HTML UI bound to `127.0.0.1` only.
-- **Automation orchestrator** (`listener automate`) — multi-agent overnight feature pipeline driving the Claude Code SDK (planner → implementor → progress agent), with auto-resume and auto-commit.
+| Lane | What runs | Concurrency |
+| --- | --- | --- |
+| Recording | `sounddevice` → WAV | one recording at a time |
+| Transcription run | queued `transcribe` jobs, sequentially | one job at a time, one run at a time |
+| Claude actions | `analyze` / `memory` jobs | one at a time, start immediately when you click |
 
-All Claude calls funnel through `listener/claude/runner.py`, which forces Max-OAuth, monkey-patches the SDK message parser to tolerate unknown event types, and provides 3-attempt self-correcting JSON Schema validation.
+**Live transcription under contention.** Live transcription is optional and loads its own Whisper model in the recording process. To avoid two large models competing for the laptop, recording always wins: if a transcription run is active when you start a recording with live transcription, the recording starts normally and live text is skipped (the UI tells you why). Conversely, the queue refuses to run while live transcription is active; stop the recording (or record without live mode) first.
+
+Three entry points share the same pipeline code (`listener/pipeline.py`):
+
+- **CLI** (`listener record`, `listener transcribe`, `listener memory ...`) — Click-based.
+- **Flask web app** (`listener web`) — JSON endpoints + 1 SSE stream, single-file HTML UI bound to `127.0.0.1` only.
+- **Automation orchestrator** (`listener automate`) — the older overnight feature pipeline (unchanged).
+
+All Claude calls funnel through `listener/claude/runner.py` (Max OAuth, tolerant SDK parser, schema-validated JSON with self-correcting retries).
 
 ## Install
 
@@ -82,6 +92,15 @@ listener web              # http://127.0.0.1:8642
 listener web -p 3000      # custom port
 ```
 
+Typical session:
+
+1. **Record** → **Stop**. The recording is saved; name it inline.
+2. **Add to queue** (uses the Language / noise-reduction settings at that moment). Import audio the same way.
+3. **Run queued** (or tick some jobs and **Run selected**). You can start the next recording while this runs. **Stop** interrupts after the current segment and keeps the checkpoint; **Retry** resumes.
+4. Open the meeting → **Analysis** tab → pick a recipe → **Analyze with Claude**.
+5. **Memory** tab → **Generate memory**. Tick to-dos as you complete them, edit owners/deadlines; **Update memory** later keeps your edits.
+6. Sidebar **Memory** → search/select meetings or a project → ask *"What is still open?"*.
+
 ### CLI
 
 ```bash
@@ -99,6 +118,13 @@ listener analyze transcripts/2026-04-04_14-30-00_transcript.md --recipe sprint_r
 
 # Search across all meetings
 listener search "budget Q3"
+
+# Meeting memory (explicit Claude call per meeting)
+listener memory generate 2026-04-04_14-30-00
+listener memory show 2026-04-04_14-30-00
+listener memory tasks --open
+listener memory ask "What is still open?" --meeting 2026-04-04_14-30-00 --meeting 2026-04-05_10-47-34
+listener memory projects create "Q3 launch" --meeting 2026-04-04_14-30-00
 
 # Export
 listener export 2026-04-04_14-30-00 --format pdf
@@ -160,7 +186,11 @@ listener/
 ├── cli.py                 # Click CLI: record, transcribe, analyze, search, export, web, recipes, devices, automate
 ├── recorder.py            # sounddevice WAV capture, optional streaming callback
 ├── preprocessor.py        # noisereduce wrapper
-├── transcriber.py         # faster-whisper + per-segment resume checkpoints
+├── transcriber.py         # faster-whisper + per-segment resume checkpoints (stop/progress hooks)
+├── jobs.py                # persistent job queue (SQLite) + sequential runner
+├── pipeline.py            # job executors: transcribe (no Claude), analyze, memory
+├── memory.py              # meeting memory bank: grounded generation, task merge, retrieval, ask
+├── memory_cli.py          # `listener memory ...` commands
 ├── diarizer.py            # pyannote pipeline + Whisper-segment alignment
 ├── streaming.py           # Real-time sliding-window STT for SSE
 ├── analyzer.py            # Recipe-aware Claude analysis
@@ -174,12 +204,15 @@ listener/
 ├── claude/runner.py       # Claude Code SDK wrapper (Max OAuth, parser patch, schema retry)
 ├── automation/orchestrate.py  # Multi-agent overnight implementation pipeline
 └── web/
-    ├── app.py             # Flask: 25+ endpoints + SSE live stream
-    └── templates/index.html  # Single-file vanilla-JS UI
+    ├── app.py             # Flask: recording, queue, Claude actions, memory, SSE live stream
+    └── templates/index.html  # Single-file vanilla-JS UI (queue panel, Memory tab/view)
 ```
 
 ## Notable design decisions
 
+- **Independent state, explicit transitions.** The web app keeps recording state, the transcription run and per-meeting job rows apart (`listener/jobs.py`). Jobs are created only by user actions and executed only by an explicit run; on startup any job left `running` by a crashed process is marked `interrupted` and waits for **Retry** — paid Claude calls are never silently re-run. Duplicate submissions and transcript overwrites are refused unless you choose **Re-transcribe**.
+- **Grounded memory, mechanically checked.** Claude returns JSON (schema-validated) for the memory bank, then `listener/memory.py` verifies every timestamp against the transcript and drops owners/deadlines that do not literally appear in it, recording what was dropped in `grounding_notes`. Transcript text is wrapped as data with an explicit "not instructions" rule. Re-generation merges to-dos by text similarity: completed/edited tasks keep their state, vanished tasks are marked stale, never deleted.
+- **Bounded cross-meeting retrieval.** "Ask" sends only the stored memory of the selected meetings (per-meeting and total character caps, meetings beyond the cap are listed as omitted), never the whole archive or raw transcripts, and answers cite meeting labels.
 - **Max-OAuth zero-cost AI.** `listener/claude/runner.py` strips `ANTHROPIC_API_KEY` from the subprocess environment so the Claude Code SDK falls back to OAuth, billing AI analysis against an existing Claude Max subscription instead of the metered API. The SDK's `parse_message` is also monkey-patched at import time (idempotently) to tolerate unknown event types like `rate_limit_event` instead of crashing the consumer loop.
 - **Local-only audio processing.** Recording, denoising, transcription, and diarization all run on-device. Only the text transcript is sent to Claude for analysis. The Flask server binds to `127.0.0.1` only and caps uploads at 2 GB.
 - **Resumable transcription.** faster-whisper writes a JSON checkpoint after every segment with `last_end`, language, and the full segment list. On restart the transcriber loads the checkpoint and uses `clip_timestamps=[last_end]` to skip already-transcribed audio — a 1-hour run survives mid-flight interruption.
@@ -191,8 +224,8 @@ listener/
 
 | What                          | Where                                  |
 | ----------------------------- | -------------------------------------- |
-| Transcripts, audio, analysis  | `./transcripts/` (working directory)   |
-| Search index (SQLite WAL)     | `~/.listener/listener.db`              |
+| Transcripts, audio, analysis, memory.md/json | `./transcripts/` (working directory) |
+| Search index, processing queue, memory bank (SQLite WAL) | `~/.listener/listener.db` |
 | Config (HF token, webhooks)   | `~/.listener/config.yaml`              |
 | Custom recipes                | `~/.listener/recipes/*.yaml`           |
 

@@ -4,6 +4,7 @@ Commands:
     listener record     Record + transcribe + analyze a meeting
     listener transcribe Transcribe an existing audio file
     listener analyze    Analyze an existing transcript with Claude
+    listener memory     Meeting memory bank (generate, show, tasks, ask, ...)
     listener devices    List available audio input devices
 """
 
@@ -412,6 +413,15 @@ def automate_cmd(start_from):
     import asyncio
 
     asyncio.run(run_pipeline(start_from=start_from))
+
+
+# -----------------------------------------------------------------------
+# listener memory ...
+# -----------------------------------------------------------------------
+
+from listener.memory_cli import memory_group  # noqa: E402
+
+cli.add_command(memory_group)
 
 
 # -----------------------------------------------------------------------
