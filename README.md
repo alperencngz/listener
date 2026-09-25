@@ -70,14 +70,33 @@ Requirements:
 
 - Python 3.11+
 - macOS (developed and tested on Apple Silicon M4) or Linux
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) signed in with a Max subscription (for AI analysis and chat)
+- For AI analysis, memory and chat: either the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) signed in with your subscription, or an Anthropic API key (Settings → Claude access)
 - A HuggingFace account + read token (only if you want speaker diarization)
 
 ```bash
 git clone https://github.com/alperencngz/listener.git
 cd listener
-pip install -e .          # or: uv pip install -e .
+uv sync --extra desktop   # or: pip install -e .   (the desktop extra adds the native window)
 ```
+
+### Run it as a Mac app
+
+Point an AI coding agent at **[AGENT_SETUP.md](AGENT_SETUP.md)** ("Read AGENT_SETUP.md and
+follow it to install Listener on this Mac"), or do it by hand:
+
+```bash
+./mac/build_app.sh
+cp -R dist/Listener.app /Applications/
+```
+
+`Listener.app` is a py2app alias-mode bundle, the same approach as Dictator: it runs this
+repo's source and `.venv` in place, so it only works on the machine you built it on, and
+`git pull` updates take effect on the next launch without a rebuild. The app shows the web UI
+in its own window (`listener desktop` does the same from a terminal), stores meetings in
+`~/Documents/Listener` unless `data_dir` is set in `~/.listener/config.yaml`, preselects the
+`large-v3-turbo` model, and asks before quitting while a recording or a transcription is
+running. Exports and downloads open a Save dialog. Microphone access is granted to the app
+itself the first time you press Record.
 
 ### HuggingFace token (optional, for diarization)
 
@@ -102,6 +121,7 @@ Typical session:
 1. **Record** → **Stop**. The recording is saved; name it inline.
 2. **Add to queue** (uses the Language / noise-reduction settings at that moment). Import audio the same way.
 3. **Run queued** (or tick some jobs and **Run selected**). You can start the next recording while this runs. **Stop** interrupts after the current segment and keeps the checkpoint; **Retry** resumes.
+   Settings (model, language, noise reduction, Claude access) apply at the moment you add a job; the model and the Claude choice are saved to `~/.listener/config.yaml`.
 4. Open the meeting → **Analysis** tab → pick a recipe → **Analyze with Claude**.
 5. **Memory** tab → **Generate memory**. Tick to-dos as you complete them, edit owners/deadlines; **Update memory** later keeps your edits.
 6. Sidebar **Memory** → search/select meetings or a project → ask *"What is still open?"*.
@@ -182,7 +202,8 @@ expected the analysis to be attached.
 - **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** `large-v3` — CTranslate2-backed local STT with VAD and word timestamps
 - **[pyannote-audio](https://github.com/pyannote/pyannote-audio)** 3.1 — speaker diarization (CPU)
 - **[noisereduce](https://github.com/timsainb/noisereduce)** — non-stationary noise reduction
-- **[Claude Code SDK](https://github.com/anthropics/claude-code-sdk-python)** via Max OAuth — analysis, chat, automation agents
+- **[Claude Code SDK](https://github.com/anthropics/claude-code-sdk-python)** via Max OAuth, or the **[Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python)** with an API key — analysis, memory, chat
+- **[pywebview](https://pywebview.flowrl.com/)** + **py2app** (alias mode) — the Mac app window and bundle (`mac/`)
 - **[jsonschema](https://github.com/python-jsonschema/jsonschema)** — structured-output validation with self-correcting retries
 - **SQLite FTS5** — full-text search with BM25 ranking and Turkish-aware `unicode61` tokenizer
 - **[sounddevice](https://python-sounddevice.readthedocs.io/) / [soundfile](https://python-soundfile.readthedocs.io/) / numpy** — audio I/O and DSP
@@ -193,7 +214,9 @@ expected the analysis to be attached.
 
 ```
 listener/
-├── cli.py                 # Click CLI: record, transcribe, analyze, search, export, web, recipes, devices, automate
+├── cli.py                 # Click CLI: record, transcribe, analyze, search, export, web, desktop, recipes, devices, automate
+├── settings.py            # ~/.listener/config.yaml: data_dir, default_model, Claude access mode / API key
+├── desktop.py             # native window (pywebview) around the Flask app; what Listener.app runs
 ├── recorder.py            # sounddevice WAV capture, optional streaming callback
 ├── preprocessor.py        # noisereduce wrapper
 ├── transcriber.py         # faster-whisper + per-segment resume checkpoints (stop/progress hooks)

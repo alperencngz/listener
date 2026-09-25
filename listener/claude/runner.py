@@ -1,7 +1,13 @@
-"""Claude Code SDK wrapper for meeting analysis.
+"""Claude wrapper for meeting analysis.
 
 Adapted from AbsolutePath/services/worker/claude/runner.py.
-Provides run_claude_session() for single-turn SDK calls using Max OAuth.
+Provides run_claude_session() for single-turn calls. Two access modes, chosen
+in ``~/.listener/config.yaml`` (``claude_auth``, see ``listener.settings``):
+
+* ``max`` (default): the Claude Code SDK, which uses the Claude Code login on
+  this machine (Max/Pro subscription, no per-token cost).
+* ``api``: the Anthropic Python SDK with a saved API key, for people without
+  Claude Code. Same prompts, same single-turn shape.
 
 Key design decisions (inherited from AbsolutePath):
 - max_turns=1: Single-turn generation, no tool use
@@ -159,10 +165,13 @@ async def run_claude_session(
     model: str = "claude-sonnet-4-5",
     allowed_tools: list[str] | None = None,
     max_turns: int = 1,
-    auth_mode: str = "max",
+    auth_mode: str | None = None,
     node_name: str = "",
 ) -> str:
-    """Run a single Claude Code SDK session.
+    """Run a single-turn Claude call.
+
+    ``auth_mode`` is ``"max"`` (Claude Code SDK) or ``"api"`` (Anthropic SDK with
+    a saved key); ``None`` reads the user's choice from the config file.
 
     IMPORTANT: Do NOT break/return from inside ``async for message in query()``.
     Let the generator complete naturally to avoid GeneratorExit issues.
@@ -173,9 +182,15 @@ async def run_claude_session(
     Raises:
         ClaudeTaskError: If session fails or returns no result.
     """
+    if auth_mode is None:
+        from listener import settings
+        auth_mode = settings.claude_auth_mode()
+    if auth_mode == "api":
+        return await _run_api_session(prompt, system_prompt=system_prompt, model=model, node_name=node_name)
+
     env_overrides: dict[str, str] = {}
-    if auth_mode == "max" and os.environ.get("ANTHROPIC_API_KEY"):
-        env_overrides["ANTHROPIC_API_KEY"] = ""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        env_overrides["ANTHROPIC_API_KEY"] = ""  # force the OAuth login, never a stray key
 
     options = ClaudeCodeOptions(
         system_prompt=system_prompt or None,
@@ -233,6 +248,45 @@ async def run_claude_session(
     return result_message.result
 
 
+async def _run_api_session(prompt: str, *, system_prompt: str, model: str, node_name: str) -> str:
+    """Single-turn call through the Anthropic SDK using the saved API key."""
+    from listener import settings
+
+    api_key = settings.anthropic_api_key()
+    if not api_key:
+        raise ClaudeTaskError(
+            "No Anthropic API key is saved. Add one in Settings, or switch to the Claude Code login.",
+            node_name=node_name,
+        )
+    try:
+        import anthropic
+    except ImportError as exc:  # pragma: no cover - dependency is declared
+        raise ClaudeTaskError("The 'anthropic' package is not installed.", node_name=node_name) from exc
+
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    request = {
+        "model": model,
+        "max_tokens": 16384,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if system_prompt:
+        request["system"] = system_prompt
+    try:
+        message = await asyncio.wait_for(client.messages.create(**request), timeout=300)
+    except asyncio.TimeoutError:
+        raise ClaudeTaskError("API call timed out after 300s", node_name=node_name)
+    except Exception as exc:
+        raise ClaudeTaskError(f"API error: {exc}", node_name=node_name) from exc
+
+    text = "".join(
+        getattr(block, "text", "") for block in getattr(message, "content", []) or []
+        if getattr(block, "type", "") == "text"
+    )
+    if not text.strip():
+        raise ClaudeTaskError("Empty response from the API", node_name=node_name)
+    return text
+
+
 # ---------------------------------------------------------------------------
 # Schema-validated session runner with retry
 # ---------------------------------------------------------------------------
@@ -245,7 +299,7 @@ async def run_with_schema_validation(
     system_prompt: str = "",
     model: str = "claude-sonnet-4-5",
     node_name: str = "",
-    auth_mode: str = "max",
+    auth_mode: str | None = None,
     max_retries: int = 3,
 ) -> dict:
     """Run a Claude session with JSON schema validation and self-correction retry.

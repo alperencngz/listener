@@ -28,6 +28,7 @@ from pathlib import Path
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response, stream_with_context
 
 from listener import jobs as jobsdb
+from listener import settings
 from listener.jobs import JobError, JobRunner
 from listener.pipeline import (
     default_title,
@@ -44,7 +45,15 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB max upload
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path("./transcripts")
+# ``./transcripts`` unless ``data_dir`` is configured (config.yaml or LISTENER_DATA_DIR);
+# the desktop app sets it explicitly through set_output_dir().
+OUTPUT_DIR = settings.transcripts_dir()
+
+
+def set_output_dir(path: Path) -> None:
+    """Point the app at another transcripts folder (executors read it at call time)."""
+    global OUTPUT_DIR
+    OUTPUT_DIR = Path(path)
 
 # ---------------------------------------------------------------------------
 # Recording state (independent from processing)
@@ -724,6 +733,56 @@ def api_memory_get(session_id):
 # Sessions
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Settings (config.yaml)
+# ---------------------------------------------------------------------------
+
+def _settings_payload() -> dict:
+    return {
+        "data_dir": str(OUTPUT_DIR.resolve()),
+        "config_path": str(settings.CONFIG_PATH),
+        "default_model": settings.default_model(),
+        "models": [{"id": model_id, "label": label} for model_id, label in settings.WHISPER_MODELS],
+        "claude": settings.claude_status(),
+    }
+
+
+@app.route("/api/settings", methods=["GET"])
+def api_settings():
+    return jsonify(_settings_payload())
+
+
+@app.route("/api/settings", methods=["POST"])
+def api_settings_update():
+    data = request.json or {}
+    model = data.get("default_model")
+    if model is not None:
+        if model not in settings.MODEL_IDS:
+            return _err(f"Unknown model: {model}")
+        try:
+            settings.update_config(default_model=model)
+        except OSError as exc:
+            return _err(f"Could not save settings: {exc}", 500)
+    return jsonify(_settings_payload())
+
+
+@app.route("/api/settings/claude", methods=["POST"])
+def api_settings_claude():
+    """Choose Claude Code login or an API key. The key is stored in config.yaml, never returned."""
+    data = request.json or {}
+    mode = data.get("mode") or settings.claude_auth_mode()
+    api_key = data.get("api_key")
+    if api_key is not None and not isinstance(api_key, str):
+        return _err("api_key must be a string")
+    try:
+        status = settings.set_claude_access(mode, api_key, clear_key=bool(data.get("clear_key")))
+    except ValueError as exc:
+        return _err(str(exc))
+    except OSError as exc:
+        return _err(f"Could not save settings: {exc}", 500)
+    return jsonify({"claude": status})
+
+
 @app.route("/api/sessions")
 def api_sessions():
     _ensure_init()
@@ -934,7 +993,7 @@ def api_waveform(session_id):
 
     cache_path = OUTPUT_DIR / f"{session_id}_waveform.json"
     if cache_path.exists():
-        return cache_path.read_text(), 200, {"Content-Type": "application/json"}
+        return cache_path.read_text(encoding="utf-8"), 200, {"Content-Type": "application/json"}
 
     audio_path = OUTPUT_DIR / f"{session_id}.wav"
     if not audio_path.exists():
@@ -958,7 +1017,7 @@ def api_waveform(session_id):
         if max_peak > 0:
             peaks = [round(p / max_peak, 3) for p in peaks]
         result = json.dumps({"peaks": peaks, "duration": len(data) / samplerate})
-        cache_path.write_text(result)
+        cache_path.write_text(result, encoding="utf-8")
         return result, 200, {"Content-Type": "application/json"}
     except Exception as exc:  # noqa: BLE001
         logger.error("Waveform generation failed for %s: %s", session_id, exc)

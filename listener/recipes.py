@@ -46,7 +46,7 @@ def load_recipes() -> list[Recipe]:
             continue
         for f in sorted(directory.glob("*.yaml")):
             try:
-                data = yaml.safe_load(f.read_text())
+                data = yaml.safe_load(f.read_text(encoding="utf-8"))
                 for entry in data.get("recipes", []):
                     entry["is_builtin"] = builtin
                     recipes.append(Recipe(**entry))

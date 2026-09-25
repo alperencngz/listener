@@ -4,6 +4,7 @@ DB location: ~/.listener/listener.db
 """
 
 import json
+import os
 import sqlite3
 import logging
 import threading
@@ -11,7 +12,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path.home() / ".listener" / "listener.db"
+# LISTENER_DB_PATH lets a smoke run or a second install use its own database.
+DB_PATH = Path(os.environ["LISTENER_DB_PATH"]).expanduser() if os.environ.get("LISTENER_DB_PATH") else Path.home() / ".listener" / "listener.db"
 
 _conn: sqlite3.Connection | None = None
 
@@ -261,13 +263,13 @@ def backfill_from_transcripts(transcripts_dir: Path) -> int:
             continue
 
         # Read transcript
-        transcript = tf.read_text()
+        transcript = tf.read_text(encoding="utf-8")
 
         # Read analysis if available
         analysis = ""
         analysis_file = transcripts_dir / f"{session_id}_analysis.md"
         if analysis_file.exists():
-            analysis = analysis_file.read_text()
+            analysis = analysis_file.read_text(encoding="utf-8")
 
         # Read meta if available
         title = ""
@@ -277,7 +279,7 @@ def backfill_from_transcripts(transcripts_dir: Path) -> int:
         meta_file = transcripts_dir / f"{session_id}_meta.json"
         if meta_file.exists():
             try:
-                meta = json.loads(meta_file.read_text())
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
                 title = meta.get("title", "")
                 duration = meta.get("duration", 0.0)
                 language = meta.get("language", "")

@@ -157,8 +157,8 @@ def export_cmd(session_id, fmt, output_dir, output_file):
                 click.echo(f"  {s}")
         sys.exit(1)
 
-    transcript_text = transcript_path.read_text()
-    analysis_text = analysis_path.read_text() if analysis_path.exists() else None
+    transcript_text = transcript_path.read_text(encoding="utf-8")
+    analysis_text = analysis_path.read_text(encoding="utf-8") if analysis_path.exists() else None
 
     # Load metadata
     title = f"Meeting {session_id}"
@@ -168,7 +168,7 @@ def export_cmd(session_id, fmt, output_dir, output_file):
     recipe_id = ""
     if meta_path.exists():
         try:
-            meta = _json.loads(meta_path.read_text())
+            meta = _json.loads(meta_path.read_text(encoding="utf-8"))
             title = meta.get("title", title)
             duration_seconds = meta.get("duration", 0.0)
             language = meta.get("language", "")
@@ -360,7 +360,7 @@ def analyze_cmd(transcript_file, output, model, recipe):
     """Analyze an existing transcript file with Claude."""
     from listener.analyzer import analyze_transcript_sync
 
-    text = Path(transcript_file).read_text()
+    text = Path(transcript_file).read_text(encoding="utf-8")
     click.echo("Analyzing transcript with Claude...")
 
     try:
@@ -373,7 +373,7 @@ def analyze_cmd(transcript_file, output, model, recipe):
         p = Path(transcript_file)
         output = str(p.parent / p.name.replace("_transcript", "_analysis"))
 
-    Path(output).write_text(analysis)
+    Path(output).write_text(analysis, encoding="utf-8")
     click.echo(f"Analysis saved: {output}")
 
 
@@ -393,6 +393,18 @@ def web_cmd(port):
     click.echo(f"Starting Listener web UI at {url}")
     webbrowser.open(url)
     run(port=port)
+
+
+# -----------------------------------------------------------------------
+# listener desktop
+# -----------------------------------------------------------------------
+
+@cli.command("desktop")
+def desktop_cmd():
+    """Open Listener in its own window (what the Mac app runs)."""
+    from listener.desktop import main
+
+    raise SystemExit(main())
 
 
 # -----------------------------------------------------------------------
@@ -485,7 +497,7 @@ def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, time
         f"{transcript_text}\n"
     )
     transcript_path = Path(output_dir) / f"{timestamp}_transcript.md"
-    transcript_path.write_text(transcript_md)
+    transcript_path.write_text(transcript_md, encoding="utf-8")
     click.echo(f"\nTranscript saved: {transcript_path}")
 
     if no_analyze:
@@ -519,7 +531,7 @@ def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, time
             f"{transcript_text}\n"
         )
         analysis_path = Path(output_dir) / f"{timestamp}_analysis.md"
-        analysis_path.write_text(analysis_md)
+        analysis_path.write_text(analysis_md, encoding="utf-8")
         click.echo(f"Analysis saved: {analysis_path}")
 
     except Exception as e:

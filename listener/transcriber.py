@@ -99,7 +99,7 @@ def _save_checkpoint(audio_path: str, segments: list[Segment], language: str,
         "duration": duration,
         "last_end": segments[-1].end if segments else 0.0,
     }
-    _checkpoint_path(audio_path).write_text(json.dumps(data, ensure_ascii=False))
+    _checkpoint_path(audio_path).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
 def _load_checkpoint(audio_path: str) -> dict | None:
@@ -108,7 +108,7 @@ def _load_checkpoint(audio_path: str) -> dict | None:
     if not cp.exists():
         return None
     try:
-        data = json.loads(cp.read_text())
+        data = json.loads(cp.read_text(encoding="utf-8"))
         if data.get("segments"):
             return data
     except Exception:

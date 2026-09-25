@@ -981,6 +981,10 @@ select:disabled{opacity:.45;cursor:not-allowed}
           <option value="tr">Force Turkish</option>
         </select>
       </div>
+      <div class="fg">
+        <label for="model">Whisper model</label>
+        <select id="model" onchange="saveModelSetting()"><option value="large-v3">Large v3</option></select>
+      </div>
       <div class="cb-row">
         <input type="checkbox" id="denoise" checked>
         <label for="denoise">Enable noise reduction (cleaner audio for transcription)</label>
@@ -990,7 +994,25 @@ select:disabled{opacity:.45;cursor:not-allowed}
         <label for="live-transcription">Live transcription (show text while recording)</label>
       </div>
     </div>
-    <div class="helper-text">Language and noise reduction apply when you add a recording to the queue.</div>
+    <div class="helper-text">Language, model and noise reduction apply when you add a recording to the queue. The model is downloaded once on first use.</div>
+    <div class="settings-row" style="margin-top:12px">
+      <div class="fg">
+        <label for="claude-mode">Claude access (analysis, memory, Ask)</label>
+        <select id="claude-mode" onchange="claudeModeChanged()">
+          <option value="max">Claude Code login on this Mac</option>
+          <option value="api">Anthropic API key</option>
+        </select>
+      </div>
+      <div class="fg" id="claude-key-row" style="display:none">
+        <label for="claude-key">API key</label>
+        <input type="password" id="claude-key" class="inline-input" placeholder="sk-ant-…" autocomplete="off" onkeydown="if(event.key==='Enter')saveClaudeSettings()">
+      </div>
+      <div class="fg" style="flex:0 0 auto;justify-content:flex-end">
+        <button class="btn" onclick="saveClaudeSettings()">Save</button>
+      </div>
+    </div>
+    <div class="msg" id="claude-msg"></div>
+    <div class="helper-text" id="data-dir-note"></div>
   </div>
 
   <!-- Recorder -->
@@ -1186,6 +1208,7 @@ const JSON_HDR={'Content-Type':'application/json'};
 // ===========================================================================
 (async()=>{
   await loadDevices();
+  await loadSettings();
   await loadRecipes();
   await loadSessions();
   loadWebhooks();
@@ -1311,8 +1334,50 @@ function transcribeOptions(){
     language:(lang===''||lang==='mixed')?null:lang,
     multilingual:lang==='mixed',
     denoise:Q('#denoise').checked,
-    model_size:'large-v3',
+    model_size:val('model')||'large-v3',
   };
+}
+
+// ---- Settings persisted in ~/.listener/config.yaml (via /api/settings) ----
+let _settings=null;
+async function loadSettings(){
+  try{
+    const r=await f('/api/settings');
+    if(!r.ok)return;
+    _settings=await r.json();
+    renderSettings();
+  }catch(e){console.error('Failed to load settings:',e)}
+}
+function renderSettings(){
+  if(!_settings)return;
+  const sel=Q('#model');
+  sel.innerHTML=(_settings.models||[]).map(m=>`<option value="${attr(m.id)}"${m.id===_settings.default_model?' selected':''}>${esc(m.label)}</option>`).join('');
+  renderClaudeStatus(_settings.claude);
+  Q('#data-dir-note').textContent='Meetings are stored in '+_settings.data_dir+'. Settings live in '+_settings.config_path+'.';
+}
+function renderClaudeStatus(c){
+  if(!c)return;
+  Q('#claude-mode').value=c.mode;
+  claudeModeChanged();
+  setMsg('#claude-msg',c.note,c.ready?'ok':'err');
+}
+function claudeModeChanged(){
+  Q('#claude-key-row').style.display=Q('#claude-mode').value==='api'?'':'none';
+}
+async function saveModelSetting(){
+  const res=await postJson('/api/settings',{default_model:val('model')});
+  if(!res.ok){setMsg('#claude-msg',res.error,'err');return}
+  _settings=res.data; renderSettings();
+}
+async function saveClaudeSettings(){
+  const body={mode:val('claude-mode')};
+  const key=Q('#claude-key').value.trim();
+  if(key)body.api_key=key;
+  const res=await postJson('/api/settings/claude',body);
+  if(!res.ok){setMsg('#claude-msg',res.error,'err');return}
+  Q('#claude-key').value='';
+  if(_settings)_settings.claude=res.data.claude;
+  renderClaudeStatus(res.data.claude);
 }
 
 // ===========================================================================
@@ -1329,7 +1394,7 @@ async function doStart(){
     device:val('device')!==''?parseInt(val('device')):null,
     language:(lang===''||lang==='mixed')?null:lang,
     live_transcription:Q('#live-transcription').checked,
-    model_size:'large-v3',
+    model_size:val('model')||'large-v3',
   };
   const btn=Q('#rec-btn');
   btn.disabled=true;

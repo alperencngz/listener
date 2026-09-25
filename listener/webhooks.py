@@ -25,22 +25,14 @@ CONFIG_PATH = Path.home() / ".listener" / "config.yaml"
 
 def _load_config() -> dict:
     """Load the full config.yaml, returning {} if missing or invalid."""
-    if not CONFIG_PATH.exists():
-        return {}
-    try:
-        import yaml
-        with open(CONFIG_PATH) as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
+    from listener import settings
+    return settings.load_config()
 
 
 def _save_config(cfg: dict) -> None:
     """Write the full config back to config.yaml."""
-    import yaml
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_PATH, "w") as f:
-        yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True)
+    from listener import settings
+    settings.save_config(cfg)
 
 
 def list_webhooks() -> list[dict]:
