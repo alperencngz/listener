@@ -240,7 +240,9 @@ def export_cmd(session_id, fmt, output_dir, output_file):
               help="Analysis recipe ID (run 'listener recipes' to list)")
 @click.option("--no-denoise", is_flag=True,
               help="Skip noise reduction preprocessing")
-def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe, no_denoise):
+@click.option("--tag", "-t", "tags", multiple=True,
+              help="Tag the meeting (repeatable); tags and their notes are given to Claude as context")
+def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe, no_denoise, tags):
     """Record a meeting, then transcribe and analyze.
 
     Starts recording from the selected audio input device.
@@ -314,7 +316,7 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
     click.echo(f"\n\nRecording saved: {audio_path}\n")
 
     _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe, no_denoise=no_denoise)
+                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe, no_denoise=no_denoise, tags=list(tags))
 
 
 # -----------------------------------------------------------------------
@@ -338,12 +340,14 @@ def record_cmd(device, language, model_size, no_analyze, output_dir, hf_token, n
               help="Analysis recipe ID (run 'listener recipes' to list)")
 @click.option("--no-denoise", is_flag=True,
               help="Skip noise reduction preprocessing")
-def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe, no_denoise):
+@click.option("--tag", "-t", "tags", multiple=True,
+              help="Tag the meeting (repeatable); tags and their notes are given to Claude as context")
+def transcribe_cmd(audio_file, language, model_size, no_analyze, output_dir, hf_token, no_diarize, recipe, no_denoise, tags):
     """Transcribe an existing audio file."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     _run_pipeline(audio_file, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe, no_denoise=no_denoise)
+                  hf_token=hf_token, no_diarize=no_diarize, recipe_id=recipe, no_denoise=no_denoise, tags=list(tags))
 
 
 # -----------------------------------------------------------------------
@@ -441,9 +445,19 @@ cli.add_command(memory_group)
 # -----------------------------------------------------------------------
 
 def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, timestamp,
-                  hf_token=None, no_diarize=False, recipe_id=None, no_denoise=False):
+                  hf_token=None, no_diarize=False, recipe_id=None, no_denoise=False, tags=None):
     """Transcribe audio, optionally diarize, and optionally analyze with Claude."""
     from listener.transcriber import transcribe
+    from listener import tags as tagsmod
+
+    tag_names: list[str] = []
+    if tags:
+        try:
+            tag_names = tagsmod.set_meeting_tags(Path(output_dir), timestamp, list(tags))
+            click.echo(f"Tags: {', '.join(tag_names)}")
+        except tagsmod.TagError as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
 
     # F7: Noise preprocessing
     transcribe_path = audio_path
@@ -518,11 +532,14 @@ def _run_pipeline(audio_path, language, model_size, no_analyze, output_dir, time
     from listener.analyzer import analyze_transcript_sync
 
     try:
-        analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id)
+        analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id,
+                                           context=tagsmod.prompt_block(tag_names))
 
+        tags_line = f"**Tags:** {', '.join(tag_names)}  \n" if tag_names else ""
         analysis_md = (
             f"# Meeting Analysis -- {date_display}\n\n"
             f"**Duration:** {duration_str}  \n"
+            f"{tags_line}"
             f"**Language:** {result.language}\n\n"
             f"---\n\n"
             f"{analysis}\n\n"

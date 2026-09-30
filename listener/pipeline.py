@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 from listener.jobs import JobContext, JobInterrupted
+from listener import tags as tagsmod
 
 logger = logging.getLogger(__name__)
 
@@ -336,12 +337,16 @@ def run_analyze_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
 
     ctx.set_stage("analyzing")
     transcript_text = paths["transcript"].read_text(encoding="utf-8")
-    analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id)
-
     meta = read_meta(output_dir, session_id)
+    tag_names = tagsmod.meeting_tags(meta)
+    analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id,
+                                       context=tagsmod.prompt_block(tag_names))
+
+    tags_line = f"**Tags:** {', '.join(tag_names)}  \n" if tag_names else ""
     analysis_md = (
         f"# Meeting Analysis -- {date_display(session_id)}\n\n"
         f"**Duration:** {fmt_duration(meta.get('duration', 0))}  \n"
+        f"{tags_line}"
         f"**Language:** {meta.get('language', '')}\n\n---\n\n"
         f"{analysis}\n"
     )
@@ -391,6 +396,7 @@ def run_memory_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
         session_id, transcript_text,
         title=meta.get("title") or default_title(session_id),
         language=meta.get("language", "") or "",
+        tags=tagsmod.meeting_tags(meta),
         transcripts_dir=output_dir,
     )
     tasks = record.get("tasks", []) if record else []

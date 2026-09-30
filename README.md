@@ -102,6 +102,16 @@ preselected, and your choice is remembered by name; if that device has disconnec
 iPhone or Bluetooth microphone, say) the recording falls back to the default microphone and
 says so under the Record button.
 
+### Tags
+
+Tags are your own labels for meetings (`client`, `1:1`, `voice memo`, ...). Tag a recording right
+after you stop it, an uploaded memo right after the import, or any meeting from its header; type a
+new name to create a tag on the spot. Each tag can carry a one-line note in Settings, and that note
+is what Claude receives: every analysis, memory generation and cross-meeting question gets the
+meeting's tags with their notes as user-provided context, clearly separated from the transcript.
+The sidebar filters by tag. The vocabulary lives in `~/.listener/config.yaml` under `tags`, a
+meeting's tags in its `_meta.json`, and the CLI takes `--tag` on `record` and `transcribe`.
+
 ### HuggingFace token (optional, for diarization)
 
 1. Generate a read token at <https://huggingface.co/settings/tokens>.

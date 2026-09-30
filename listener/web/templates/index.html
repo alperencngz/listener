@@ -786,6 +786,28 @@ select:disabled{opacity:.45;cursor:not-allowed}
   text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;
 }
 .s-chip.queued{background:#f1f5f9;color:#64748b}
+.s-tag{display:inline-block;font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;margin-left:4px;background:#ede9fe;color:#6d28d9;vertical-align:middle}
+.tag-editor{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-basis:100%;margin-top:8px}
+.tag-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px}
+.tag-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9}
+.tag-chip button{border:none;background:none;color:#7c3aed;cursor:pointer;font-size:13px;line-height:1;padding:0}
+.tag-input{font-size:12px;padding:3px 8px;border:1px dashed #cbd5e1;border-radius:999px;background:#fff;min-width:140px;outline:none}
+.tag-input:focus{border-color:#6366f1}
+.tag-filter{display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px 2px}
+.tag-filter .tf{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer}
+.tag-filter .tf.on{background:#6366f1;border-color:#6366f1;color:#fff}
+.tag-filter .tf .n{opacity:.7;font-size:10px}
+.tags-settings{margin-top:14px;border-top:1px solid #f1f5f9;padding-top:12px}
+.tags-settings .tags-head{font-size:12px;font-weight:700;color:#1e293b;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.tag-vocab-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px}
+.tag-vocab-row strong{min-width:90px;color:#1e293b;word-break:break-word}
+.tag-vocab-row input{flex:1;font-size:12px}
+.tag-vocab-row .cnt{font-size:11px;color:#94a3b8;min-width:70px;text-align:right}
+.tag-vocab-row .s-del{font-size:16px}
+.tag-vocab-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.tag-vocab-add input{flex:1;min-width:140px}
+.v-tags{margin-top:6px}
+.mem-tags{font-size:12px;color:#64748b;margin:6px 0 10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .s-chip.running{background:#dbeafe;color:#2563eb}
 .s-chip.failed{background:#fee2e2;color:#dc2626}
 .s-chip.interrupted{background:#fef3c7;color:#b45309}
@@ -953,6 +975,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     </div>
   </div>
   <div class="sidebar-sessions">
+    <div class="tag-filter" id="tag-filter" style="display:none"></div>
     <div class="search-results" id="search-results" style="display:none"></div>
     <ul class="slist" id="slist">
       <li class="empty">No sessions yet</li>
@@ -1012,6 +1035,16 @@ select:disabled{opacity:.45;cursor:not-allowed}
       </div>
     </div>
     <div class="msg" id="claude-msg"></div>
+    <div class="tags-settings">
+      <div class="tags-head">Tags <span class="helper-text" style="margin:0;font-weight:400">Your own labels for meetings. Tag a recording before it is processed; the note tells Claude what the tag means when it writes the analysis and memory.</span></div>
+      <div id="tag-vocab-list"></div>
+      <div class="tag-vocab-add">
+        <input type="text" id="tag-new-name" class="inline-input" placeholder="New tag (e.g. client)" onkeydown="if(event.key==='Enter')addTagVocab()">
+        <input type="text" id="tag-new-note" class="inline-input" placeholder="What it means, for Claude (optional)" onkeydown="if(event.key==='Enter')addTagVocab()">
+        <button class="btn sm" onclick="addTagVocab()">Add tag</button>
+      </div>
+      <div class="msg" id="tag-vocab-msg"></div>
+    </div>
     <div class="helper-text" id="data-dir-note"></div>
   </div>
 
@@ -1030,6 +1063,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
       <button class="btn primary" id="rec-queue-btn" onclick="queueStoppedRecording()">Add to queue</button>
       <button class="btn" onclick="openStoppedRecording()">Open</button>
     </div>
+    <div class="tag-editor" id="rec-tags" style="display:none"></div>
     <div class="msg" id="rec-after-msg"></div>
   </div>
 
@@ -1140,6 +1174,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
         <div style="min-width:0;flex:1">
           <div class="v-title" id="v-title"></div>
           <div class="v-meta" id="v-meta"></div>
+          <div class="tag-editor v-tags" id="v-tags"></div>
         </div>
         <button class="viewer-close" onclick="showNewRecordingView()" title="Close viewer">&times;</button>
       </div>
@@ -1209,6 +1244,7 @@ const JSON_HDR={'Content-Type':'application/json'};
 (async()=>{
   await loadSettings();   // remembered input device is needed before the list is filled
   await loadDevices();
+  await loadTags();
   await loadRecipes();
   await loadSessions();
   loadWebhooks();
@@ -1273,6 +1309,135 @@ function stageText(j){
 }
 function safeSnippet(s){
   return esc(s||'').replace(/&lt;mark&gt;/g,'<mark>').replace(/&lt;\/mark&gt;/g,'</mark>');
+}
+
+// ===========================================================================
+// Tags — user-defined labels; vocabulary in config.yaml, per-meeting in meta
+// ===========================================================================
+let _tagVocab=[];
+let _tagFilter='';
+async function loadTags(){
+  try{
+    const r=await f('/api/tags');
+    const d=await r.json();
+    applyTagVocab(d.tags||[]);
+  }catch(e){console.error(e)}
+}
+function applyTagVocab(vocab){
+  _tagVocab=vocab||[];
+  renderTagDatalist();
+  renderTagSettings();
+  renderTagFilter();
+}
+function renderTagDatalist(){
+  let dl=Q('#tag-datalist');
+  if(!dl){dl=document.createElement('datalist');dl.id='tag-datalist';document.body.appendChild(dl);}
+  dl.innerHTML=_tagVocab.map(t=>`<option value="${attr(t.name)}">${esc(t.note||'')}</option>`).join('');
+}
+function tagChipsHtml(names){
+  return (names||[]).map(n=>`<span class="s-tag">${esc(n)}</span>`).join('');
+}
+// Inline editor: chips with × plus an input (datalist of known tags; new names are created)
+function renderTagEditor(containerId,sessionId,names){
+  const el=Q('#'+containerId);
+  if(!el)return;
+  names=names||[];
+  el.dataset.sid=sessionId;
+  el.dataset.tags=JSON.stringify(names);
+  el.innerHTML=`<span class="tag-label">Tags</span>`+
+    names.map(n=>`<span class="tag-chip">${esc(n)}<button type="button" title="Remove tag" onclick="tagEditorRemove('${attr(containerId)}','${attr(n)}')">&times;</button></span>`).join('')+
+    `<input type="text" class="tag-input" list="tag-datalist" placeholder="${names.length?'Add tag':'Add a tag, e.g. client'}" onkeydown="if(event.key==='Enter'){event.preventDefault();tagEditorAdd('${attr(containerId)}')}" onchange="tagEditorAdd('${attr(containerId)}')">
+    <span class="msg tag-msg" style="margin:0"></span>`;
+}
+async function tagEditorSave(containerId,names){
+  const el=Q('#'+containerId);
+  if(!el)return;
+  const sid=el.dataset.sid;
+  const res=await postJson(`/api/sessions/${encodeURIComponent(sid)}/tags`,{tags:names});
+  if(!res.ok){
+    const m=el.querySelector('.tag-msg');
+    if(m){m.textContent=res.error||'Could not save tags';m.className='msg tag-msg err';}
+    return;
+  }
+  const tags=res.data.tags||[];
+  if(_sessionsCache[sid]) _sessionsCache[sid].tags=tags;
+  if(viewerSession&&viewerSession.id===sid) viewerSession.tags=tags;
+  renderTagEditor(containerId,sid,tags);
+  if(res.data.vocabulary) applyTagVocab(res.data.vocabulary);
+  loadSessions();
+}
+async function tagEditorAdd(containerId){
+  const el=Q('#'+containerId);
+  if(!el)return;
+  const inp=el.querySelector('.tag-input');
+  const v=(inp.value||'').trim();
+  if(!v)return;
+  inp.value='';
+  const cur=JSON.parse(el.dataset.tags||'[]');
+  if(cur.some(n=>n.toLowerCase()===v.toLowerCase()))return;
+  await tagEditorSave(containerId,cur.concat([v]));
+  const again=el.querySelector('.tag-input'); if(again) again.focus();
+}
+async function tagEditorRemove(containerId,name){
+  const el=Q('#'+containerId);
+  if(!el)return;
+  const cur=JSON.parse(el.dataset.tags||'[]');
+  await tagEditorSave(containerId,cur.filter(n=>n!==name));
+}
+// Sidebar filter
+function renderTagFilter(){
+  const el=Q('#tag-filter');
+  if(!el)return;
+  if(!_tagVocab.length){el.style.display='none';if(_tagFilter){_tagFilter='';loadSessions();}return;}
+  el.style.display='';
+  el.innerHTML=`<button class="tf${_tagFilter?'':' on'}" onclick="setTagFilter('')">All</button>`+
+    _tagVocab.map(t=>`<button class="tf${_tagFilter.toLowerCase()===t.name.toLowerCase()?' on':''}" onclick="setTagFilter('${attr(t.name)}')" title="${attr(t.note||'')}">${esc(t.name)}${t.count?` <span class="n">${t.count}</span>`:''}</button>`).join('');
+}
+function setTagFilter(name){
+  _tagFilter=name||'';
+  renderTagFilter();
+  loadSessions();
+}
+// Settings: the vocabulary (name, note for Claude, usage, delete)
+function renderTagSettings(){
+  const el=Q('#tag-vocab-list');
+  if(!el)return;
+  if(!_tagVocab.length){el.innerHTML='<div class="helper-text" style="margin-top:6px">No tags yet. Add one below, or type a new tag on a meeting.</div>';return;}
+  el.innerHTML=_tagVocab.map(t=>`<div class="tag-vocab-row">
+      <strong>${esc(t.name)}</strong>
+      <input type="text" class="inline-input" value="${attr(t.note||'')}" placeholder="What it means, for Claude" onchange="saveTagNote('${attr(t.name)}',this.value)">
+      <span class="cnt">${t.count?t.count+(t.count===1?' meeting':' meetings'):'unused'}</span>
+      <button class="s-del" title="Delete tag" onclick="deleteTagVocab('${attr(t.name)}',${t.count||0})">&times;</button>
+    </div>`).join('');
+}
+async function addTagVocab(){
+  const name=Q('#tag-new-name').value.trim();
+  const note=Q('#tag-new-note').value.trim();
+  if(!name){setMsg('#tag-vocab-msg','Enter a tag name first.','err');return}
+  const res=await postJson('/api/tags',{name,note});
+  if(!res.ok){setMsg('#tag-vocab-msg',res.error,'err');return}
+  Q('#tag-new-name').value='';Q('#tag-new-note').value='';
+  setMsg('#tag-vocab-msg','Tag saved.','ok');
+  applyTagVocab(res.data.vocabulary||[]);
+}
+async function saveTagNote(name,note){
+  const res=await postJson('/api/tags',{name,note});
+  if(!res.ok){setMsg('#tag-vocab-msg',res.error,'err');return}
+  setMsg('#tag-vocab-msg','Note saved.','ok');
+  applyTagVocab(res.data.vocabulary||[]);
+}
+async function deleteTagVocab(name,count){
+  const what=count?`Delete the tag “${name}” and remove it from ${count} meeting${count===1?'':'s'}?`:`Delete the tag “${name}”?`;
+  if(!confirm(what))return;
+  try{
+    const r=await f(`/api/tags/${encodeURIComponent(name)}?strip=1`,{method:'DELETE'});
+    let d={};try{d=await r.json()}catch(e){}
+    if(!r.ok){setMsg('#tag-vocab-msg',d.error||'Could not delete the tag','err');return}
+    setMsg('#tag-vocab-msg','Tag deleted.','ok');
+    applyTagVocab(d.vocabulary||[]);
+    loadSessions();
+    if(viewerSession&&viewerSession.tags) renderTagEditor('v-tags',viewerSession.id,viewerSession.tags.filter(n=>n.toLowerCase()!==name.toLowerCase()));
+  }catch(e){setMsg('#tag-vocab-msg','Could not delete the tag: '+e.message,'err')}
 }
 
 // ===========================================================================
@@ -1512,10 +1677,13 @@ function showRecAfter(){
   Q('#rec-name').value='';
   Q('#rec-queue-btn').disabled=false;
   Q('#rec-after').style.display='flex';
+  Q('#rec-tags').style.display='';
+  renderTagEditor('rec-tags',_recAfter.id,[]);
   setMsg('#rec-after-msg','');
 }
 function hideRecAfter(){
   Q('#rec-after').style.display='none';
+  Q('#rec-tags').style.display='none';
   setMsg('#rec-after-msg','');
   _recAfter=null;
 }
@@ -1862,6 +2030,7 @@ function renderViewerFrame(sess){
   }
   meta+='<span id="v-job-chip"></span>';
   Q('#v-meta').innerHTML=meta;
+  renderTagEditor('v-tags',sess.id,sess.tags||[]);
   updateViewerChip();
 
   // Tabs
@@ -2327,6 +2496,7 @@ function renderMemory(m,j){
     </div>
     <div class="msg" id="mem-msg"></div>
     <div id="mem-job-status">${memoryStatusHtml(j)}</div>`;
+  if(m.tags&&m.tags.length) html+=`<div class="mem-tags">Tags:${tagChipsHtml(m.tags)}<span class="helper-text" style="margin:0">(given to Claude as context when this memory was generated)</span></div>`;
   html+=`<div class="mem-section"><h2>Summary</h2><p>${esc(m.summary||'')||'<span class="muted">No summary.</span>'}</p></div>`;
   html+=`<div class="mem-section"><h2>Key points</h2>${kps.length?'<ul>'+kps.map(k=>`<li>${esc(k.text)} ${tsSpan(k.ts)}${k.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
   html+=`<div class="mem-section"><h2>Decisions</h2>${decs.length?'<ul>'+decs.map(d=>`<li>${esc(d.text)}${d.rationale?` <span class="rationale">— ${esc(d.rationale)}</span>`:''} ${tsSpan(d.ts)}${d.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
@@ -2979,7 +3149,7 @@ function sessionItemHtml(s){
   let chip='';
   if(s.recording) chip='<span class="s-chip rec"><span class="rec-dot"></span>REC</span>';
   else if(s.job&&s.job.status!=='done') chip=`<span class="s-chip ${attr(s.job.status)}">${esc(sessionChipText(s.job))}</span>`;
-  const sub=esc(sessionDate(s.id))+(s.duration?' &middot; '+esc(fmtDur(s.duration)):'')+(s.language?' &middot; '+esc(String(s.language).toUpperCase()):'');
+  const sub=esc(sessionDate(s.id))+(s.duration?' &middot; '+esc(fmtDur(s.duration)):'')+(s.language?' &middot; '+esc(String(s.language).toUpperCase()):'')+tagChipsHtml(s.tags);
   return `<li class="sitem${viewerSession?.id===s.id?' active':''}" data-id="${attr(s.id)}" onclick="viewSessById('${attr(s.id)}')">
     <div class="s-left"><div class="s-title">${esc(title)}</div><div class="s-date">${sub}${chip}</div></div>
     <div class="s-badges">${badges}<button class="s-rename" onclick="event.stopPropagation();renameFromSidebar('${attr(s.id)}')" title="Rename">✎</button><button class="s-del" onclick="event.stopPropagation();deleteSession('${attr(s.id)}')" title="Delete">&times;</button></div>
@@ -2989,7 +3159,7 @@ function sessionItemHtml(s){
 async function loadSessions(append){
   try{
     if(!append) _sessionOffset=0;
-    const r=await f(`/api/sessions?offset=${_sessionOffset}&limit=${_sessionLimit}`);
+    const r=await f(`/api/sessions?offset=${_sessionOffset}&limit=${_sessionLimit}${_tagFilter?'&tag='+encodeURIComponent(_tagFilter):''}`);
     const data=await r.json();
     const list=data.sessions||[];
     list.forEach(s=>{_sessionsCache[s.id]=s});
@@ -3811,7 +3981,9 @@ async function doImportFile(file){
     showImportResult(`<span>Imported as <strong>${esc(_importAfter.title)}</strong>.</span>
       <button class="btn primary sm" id="imp-queue-btn" onclick="queueImported()">Add to queue</button>
       <button class="btn sm" onclick="openImported()">Open</button>
-      <span class="msg" id="imp-msg" style="margin:0"></span>`);
+      <span class="msg" id="imp-msg" style="margin:0"></span>
+      <div class="tag-editor" id="imp-tags"></div>`);
+    renderTagEditor('imp-tags',d.session_id,d.tags||[]);
     loadSessions();
   }catch(e){
     area.classList.remove('importing');

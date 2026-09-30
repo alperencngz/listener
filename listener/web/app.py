@@ -29,8 +29,10 @@ from flask import Flask, render_template, jsonify, request, send_from_directory,
 
 from listener import jobs as jobsdb
 from listener import settings
+from listener import tags as tagsmod
 from listener.jobs import JobError, JobRunner
 from listener.pipeline import (
+    META_LOCK,
     default_title,
     fmt_duration,
     read_meta,
@@ -248,6 +250,10 @@ def api_start():
     language = data.get("language") or None
     model_size = data.get("model_size", "large-v3")
     live_requested = bool(data.get("live_transcription", False))
+    try:
+        start_tags = tagsmod.ensure_tags(tagsmod.parse_tag_list(data.get("tags")))
+    except tagsmod.TagError as exc:
+        return _err(str(exc))
 
     from listener.recorder import Recorder, describe_audio_error, resolve_device
 
@@ -277,7 +283,7 @@ def api_start():
         try:
             session_id = _reserve_session_id(
                 recorded_at=datetime.now().isoformat(timespec="seconds"), device=device,
-                device_name=device_name, source="recording",
+                device_name=device_name, source="recording", tags=start_tags,
             )
         except Exception as exc:  # noqa: BLE001
             return _err(f"Could not create the meeting files: {exc}", 500)
@@ -385,9 +391,20 @@ def api_import():
     if not audio_file.filename:
         return _err("No file selected")
 
+    raw_tags = request.form.get("tags")
+    if raw_tags and raw_tags.strip().startswith("["):
+        try:
+            raw_tags = json.loads(raw_tags)
+        except json.JSONDecodeError:
+            return _err("tags must be a comma-separated list or a JSON list")
+    try:
+        import_tags = tagsmod.ensure_tags(tagsmod.parse_tag_list(raw_tags))
+    except tagsmod.TagError as exc:
+        return _err(str(exc))
+
     imported_at = datetime.now().isoformat(timespec="seconds")
     session_id = _reserve_session_id(source="import", imported_at=imported_at,
-                                     original_filename=audio_file.filename)
+                                     original_filename=audio_file.filename, tags=import_tags)
     paths = session_paths(OUTPUT_DIR, session_id)
     audio_path = str(paths["audio"])
 
@@ -422,7 +439,7 @@ def api_import():
     update_meta(OUTPUT_DIR, session_id, title=title, duration=duration)
 
     return jsonify({"session_id": session_id, "title": title, "duration": duration,
-                    "files": {"audio": paths["audio"].name}})
+                    "tags": import_tags, "files": {"audio": paths["audio"].name}})
 
 
 # ---------------------------------------------------------------------------
@@ -756,12 +773,103 @@ def api_memory_get(session_id):
     if record is None:
         generations = memory.list_generations(session_id)
         return jsonify({"error": "No memory generated for this meeting yet", "generations": generations}), 404
+    record["tags"] = tagsmod.meeting_tags(read_meta(OUTPUT_DIR, session_id))
     return jsonify(record)
 
 
 # ---------------------------------------------------------------------------
 # Sessions
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Tags (vocabulary in config.yaml, per-meeting tags in meta.json)
+# ---------------------------------------------------------------------------
+
+def _tag_usage() -> dict[str, int]:
+    """casefolded tag name -> number of meetings carrying it."""
+    counts: dict[str, int] = {}
+    if not OUTPUT_DIR.exists():
+        return counts
+    for meta_path in OUTPUT_DIR.glob("*_meta.json"):
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for name in tagsmod.meeting_tags(meta if isinstance(meta, dict) else {}):
+            counts[name.casefold()] = counts.get(name.casefold(), 0) + 1
+    return counts
+
+
+def _tags_payload() -> dict:
+    """{"vocabulary": [{name, note, count}]} — every tag the user has created."""
+    usage = _tag_usage()
+    return {"vocabulary": [dict(t, count=usage.get(t["name"].casefold(), 0)) for t in tagsmod.list_tags()]}
+
+
+@app.route("/api/tags", methods=["GET"])
+def api_tags():
+    return jsonify({"tags": _tags_payload()["vocabulary"]})
+
+
+@app.route("/api/tags", methods=["POST"])
+def api_tags_upsert():
+    """Create a tag or update its note / name: {name, note?, rename_to?}."""
+    data = request.json or {}
+    try:
+        tag = tagsmod.upsert_tag(data.get("name"), data.get("note"), rename_to=data.get("rename_to") or None)
+        if data.get("rename_to") and tag["name"] != tagsmod.normalize_name(data.get("name")):
+            _rename_tag_on_meetings(data.get("name"), tag["name"])
+    except tagsmod.TagError as exc:
+        return _err(str(exc))
+    except OSError as exc:
+        return _err(f"Could not save tags: {exc}", 500)
+    return jsonify(dict(_tags_payload(), tag=tag))
+
+
+def _rename_tag_on_meetings(old: str, new: str) -> None:
+    wanted = tagsmod.normalize_name(old).casefold()
+    for meta_path in OUTPUT_DIR.glob("*_meta.json"):
+        session_id = meta_path.name[: -len("_meta.json")]
+        with META_LOCK:
+            current = tagsmod.meeting_tags(read_meta(OUTPUT_DIR, session_id))
+            if wanted in {n.casefold() for n in current}:
+                update_meta(OUTPUT_DIR, session_id,
+                            tags=[new if n.casefold() == wanted else n for n in current])
+
+
+@app.route("/api/tags/<name>", methods=["DELETE"])
+def api_tags_delete(name):
+    """Remove a tag from the vocabulary; with ?strip=1 also from every meeting."""
+    try:
+        removed = tagsmod.delete_tag(name)
+        stripped = tagsmod.strip_tag(OUTPUT_DIR, name) if request.args.get("strip") == "1" else 0
+    except tagsmod.TagError as exc:
+        return _err(str(exc))
+    except OSError as exc:
+        return _err(f"Could not save tags: {exc}", 500)
+    if not removed and not stripped:
+        return _err("Tag not found", 404)
+    return jsonify(dict(_tags_payload(), removed=removed, stripped=stripped))
+
+
+@app.route("/api/sessions/<session_id>/tags", methods=["GET", "POST"])
+def api_session_tags(session_id):
+    """Read or replace a meeting's tags. Unknown names are added to the vocabulary."""
+    paths = session_paths(OUTPUT_DIR, session_id)
+    if not paths["audio"].exists() and not paths["transcript"].exists() and not paths["meta"].exists():
+        return _err("Session not found", 404)
+    if request.method == "GET":
+        return jsonify({"session_id": session_id, "tags": tagsmod.meeting_tags(read_meta(OUTPUT_DIR, session_id)),
+                        **_tags_payload()})
+    data = request.json or {}
+    try:
+        names = tagsmod.set_meeting_tags(OUTPUT_DIR, session_id, tagsmod.parse_tag_list(data.get("tags")))
+    except tagsmod.TagError as exc:
+        return _err(str(exc))
+    except OSError as exc:
+        return _err(f"Could not save the tags: {exc}", 500)
+    return jsonify({"session_id": session_id, "tags": names, **_tags_payload()})
+
 
 # ---------------------------------------------------------------------------
 # Settings (config.yaml)
@@ -833,10 +941,12 @@ def api_sessions():
 
     session_map: dict[str, dict] = {}
 
+    tag_filter = (request.args.get("tag") or "").strip().casefold()
+
     def entry(sid: str) -> dict:
         if sid not in session_map:
             session_map[sid] = {"id": sid, "files": {}, "title": "", "duration": 0, "language": "",
-                                "recipe_id": "", "has_memory": False}
+                                "recipe_id": "", "has_memory": False, "tags": []}
         return session_map[sid]
 
     for f in sorted(OUTPUT_DIR.iterdir(), reverse=True):
@@ -856,6 +966,7 @@ def api_sessions():
                 s["duration"] = meta.get("duration", 0)
                 s["language"] = meta.get("language", "")
                 s["recipe_id"] = meta.get("recipe_id", "") or ""
+                s["tags"] = tagsmod.meeting_tags(meta)
             except Exception:
                 pass
             continue
@@ -890,6 +1001,8 @@ def api_sessions():
         s["recording"] = sid == recording_sid
 
     sorted_sessions = sorted(session_map.values(), key=lambda s: s["id"], reverse=True)
+    if tag_filter:
+        sorted_sessions = [s for s in sorted_sessions if tag_filter in {t.casefold() for t in s["tags"]}]
     total = len(sorted_sessions)
     page = sorted_sessions[offset:offset + limit]
     return jsonify({"sessions": page, "total": total, "has_more": offset + limit < total})

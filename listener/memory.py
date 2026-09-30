@@ -320,7 +320,7 @@ describe it as something that was said in the meeting."""
 GENERATION_USER_TEMPLATE = """\
 Meeting title: {title}
 Transcript language hint: {language}
-
+{tags_block}
 Extract the meeting memory from the transcript below. Return one JSON object with exactly this shape \
 (every list item is an object with a "text" field; use null for unknown values):
 
@@ -368,12 +368,21 @@ def _neutralise_tags(text: str) -> str:
     return _DATA_TAG_RE.sub(lambda m: m.group(0).replace("<", "\u2039").replace(">", "\u203a"), text)
 
 
-def build_generation_prompt(transcript_text: str, title: str, language: str) -> tuple[str, str]:
-    """Return (system_prompt, user_prompt) for a memory generation call."""
+def build_generation_prompt(transcript_text: str, title: str, language: str,
+                            tags: list[str] | None = None) -> tuple[str, str]:
+    """Return (system_prompt, user_prompt) for a memory generation call.
+
+    ``tags`` are the user's own labels for the meeting; their notes (from the
+    tag vocabulary) are passed as context so the extraction knows what kind of
+    meeting it is reading.
+    """
+    from listener import tags as tagsmod
     transcript_text = _neutralise_tags(transcript_text)
+    block = tagsmod.prompt_block(list(tags or []))
     user_prompt = GENERATION_USER_TEMPLATE.format(
         title=title.strip() or "(untitled)",
         language=language.strip() or "unknown",
+        tags_block=f"\n{block}\n" if block else "",
         transcript=transcript_text.strip(),
     )
     return GENERATION_SYSTEM_PROMPT, user_prompt
@@ -912,8 +921,8 @@ def _default_generation_llm(model: str) -> GenerationLLM:
 
 
 def generate_memory(session_id: str, transcript_text: str, *, title: str = "", language: str = "",
-                    transcripts_dir: Path | None = None, model: str = DEFAULT_MODEL,
-                    llm: GenerationLLM | None = None) -> dict:
+                    tags: list[str] | None = None, transcripts_dir: Path | None = None,
+                    model: str = DEFAULT_MODEL, llm: GenerationLLM | None = None) -> dict:
     """Generate (or re-generate) the grounded memory for one meeting.
 
     ``llm(system_prompt, user_prompt, schema) -> dict`` is injectable; the default
@@ -928,7 +937,7 @@ def generate_memory(session_id: str, transcript_text: str, *, title: str = "", l
     sha = _sha256(transcript_text)
     generation_id = _start_generation(session_id, model, sha)
     try:
-        system_prompt, user_prompt = build_generation_prompt(transcript_text, title, language)
+        system_prompt, user_prompt = build_generation_prompt(transcript_text, title, language, tags)
         parsed = call(system_prompt, user_prompt, MEMORY_SCHEMA)
         grounded, notes = ground_memory(parsed, transcript_text)
         now = _now()
@@ -957,6 +966,7 @@ def generate_memory(session_id: str, transcript_text: str, *, title: str = "", l
             logger.exception("Could not record failed generation %s", generation_id)
         raise MemoryGenerationError(str(exc)) from exc
     record = get_memory(session_id)
+    record["tags"] = list(tags or [])
     if transcripts_dir is not None:
         try:
             write_memory_files(transcripts_dir, record)
@@ -1061,6 +1071,8 @@ def render_memory_markdown(record: dict) -> str:
     ]
     if record.get("language"):
         lines.append(f"- Language: {record['language']}")
+    if record.get("tags"):
+        lines.append(f"- Tags: {', '.join(str(t) for t in record['tags'])}")
     lines += ["", "## Summary", "", record.get("summary") or "_(none)_", ""]
     lines += _md_section("Key points", [_md_point(p) for p in record.get("key_points") or []])
     lines += _md_section("Decisions", [_md_decision(d) for d in record.get("decisions") or []])
@@ -1237,16 +1249,28 @@ def _read_analysis(transcripts_dir: Path | None, session_id: str) -> str:
     return text.rstrip().removesuffix("---").rstrip()
 
 
-def _title_from_meta(transcripts_dir: Path | None, session_id: str) -> str:
+def _read_meta_file(transcripts_dir: Path | None, session_id: str) -> dict:
     if transcripts_dir is None:
-        return ""
+        return {}
     path = Path(transcripts_dir) / f"{session_id}_meta.json"
     if not path.exists():
-        return ""
+        return {}
     try:
-        return str(json.loads(path.read_text(encoding="utf-8")).get("title") or "")
-    except (json.JSONDecodeError, OSError, AttributeError):
-        return ""
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _title_from_meta(transcripts_dir: Path | None, session_id: str) -> str:
+    return str(_read_meta_file(transcripts_dir, session_id).get("title") or "")
+
+
+def _tags_line(transcripts_dir: Path | None, session_id: str) -> str:
+    """'Tags: name — note; name' from the meeting's meta, or ''."""
+    from listener import tags as tagsmod
+    names = tagsmod.meeting_tags(_read_meta_file(transcripts_dir, session_id))
+    return f"Tags (set by the user): {'; '.join(tagsmod.describe(names))}" if names else ""
 
 
 def _meeting_context(session_id: str, transcripts_dir: Path | None) -> dict:
@@ -1261,6 +1285,9 @@ def _meeting_context(session_id: str, transcripts_dir: Path | None) -> dict:
             source, text = "analysis", analysis[:ANALYSIS_FALLBACK_CHARS]
         else:
             source, text = "none", NO_MEMORY_TEXT
+    tags_line = _tags_line(transcripts_dir, session_id)
+    if tags_line and source != "none":
+        text = f"{tags_line}\n{text}"
     return {"session_id": session_id, "title": title, "date": date, "source": source,
             "text": text[:MEETING_CHAR_CAP], "truncated": len(text) > MEETING_CHAR_CAP}
 

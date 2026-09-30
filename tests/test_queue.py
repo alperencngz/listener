@@ -455,7 +455,7 @@ def test_analyze_is_explicit_job_and_reindexes(client, isolated_env, transcribe_
 
     calls = []
 
-    def fake_analyze(text, model="claude-sonnet-4-5", recipe_id=None):
+    def fake_analyze(text, model="claude-sonnet-4-5", recipe_id=None, context=None):
         calls.append(recipe_id)
         return "## Summary\nAll good.\n\n## Topics Discussed\n- Budget\n"
 
@@ -577,7 +577,7 @@ def test_transcribe_is_skipped_while_analyze_runs_for_same_meeting(client, isola
 
     gate = threading.Event()
 
-    def slow_analyze(text, model="claude-sonnet-4-5", recipe_id=None):
+    def slow_analyze(text, model="claude-sonnet-4-5", recipe_id=None, context=None):
         gate.wait(timeout=5)
         return "## Summary\nok\n"
 
