@@ -774,9 +774,9 @@ def list_memory_records(session_ids: list[str] | None = None, limit: int = 200) 
 
 
 def list_memories(session_ids: list[str] | None = None) -> list[dict]:
-    """Light rows (no bodies): ids, title, generation info and item/task counts."""
+    """Light rows (summary, no item bodies): ids, title, generation info and item/task counts."""
     conn = _conn()
-    sql = ("SELECT session_id, title, language, generated_at, generation_count, decisions, open_questions "
+    sql = ("SELECT session_id, title, language, summary, generated_at, generation_count, decisions, open_questions "
            "FROM meeting_memory")
     params: tuple = ()
     if session_ids is not None:
@@ -791,7 +791,7 @@ def list_memories(session_ids: list[str] | None = None) -> list[dict]:
         per_session = counts.get(row["session_id"], {})
         rows.append({
             "session_id": row["session_id"], "title": row["title"], "language": row["language"],
-            "generated_at": row["generated_at"], "generation_count": row["generation_count"],
+            "summary": row["summary"] or "", "generated_at": row["generated_at"], "generation_count": row["generation_count"],
             "tasks_open": per_session.get("open", 0), "tasks_done": per_session.get("done", 0),
             "decisions_count": len(_loads_list(row["decisions"])),
             "open_questions_count": len(_loads_list(row["open_questions"])),

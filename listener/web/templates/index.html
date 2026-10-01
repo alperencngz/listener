@@ -59,6 +59,7 @@ body{
 .sidebar-sessions::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
 
 .main{flex:1;min-width:0;padding:32px 24px 80px;max-width:820px;margin:0 auto}
+.main.wide{max-width:1040px}
 
 /* ---- Header (hidden, replaced by sidebar header) ---- */
 header{display:none}
@@ -168,20 +169,23 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .v-meta{font-size:12px;color:#64748b;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
 .v-meta span{display:flex;align-items:center;gap:3px}
 
-.tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:0;gap:2px}
+/* Meeting body in the middle, section buttons as a small rail on the right */
+.v-body{display:flex;gap:12px;align-items:flex-start}
+.v-main{flex:1;min-width:0}
+.tabs{display:flex;flex-direction:column;gap:4px;width:98px;flex-shrink:0;position:sticky;top:16px}
 .tab{
-  padding:9px 18px;border:none;background:none;
-  font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;
-  border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;
+  padding:6px 10px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;
+  font-size:12px;font-weight:600;color:#64748b;cursor:pointer;text-align:left;transition:all .15s;
 }
-.tab:hover{color:#475569}
-.tab.on{color:#6366f1;border-bottom-color:#6366f1}
+.tab:hover{color:#334155;border-color:#cbd5e1;background:#f8fafc}
+.tab.on{color:#4f46e5;border-color:#c7d2fe;background:#eef2ff}
 .tab:disabled{opacity:.35;cursor:default}
+.v-back{margin-bottom:8px}
 
 .content{
   max-height:calc(100vh - 300px);min-height:300px;overflow-y:auto;
   padding:20px;background:#f8fafc;
-  border-radius:0 0 10px 10px;
+  border-radius:10px;
   line-height:1.75;font-size:14px;color:#334155;
 }
 
@@ -879,7 +883,19 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .job-inline.running{color:#2563eb;font-weight:600}
 .job-inline.failed{flex-direction:column;align-items:flex-start;color:#b91c1c;font-weight:600}
 .job-inline.failed .q-err{font-weight:400;width:100%}
-.mem-section{margin-bottom:14px}
+.mem-group{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 16px 14px;margin-bottom:12px}
+.mem-group-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px}
+.mem-group.summary .mem-group-h{color:#6366f1}
+.mem-group.keypoints .mem-group-h{color:#0891b2}
+.mem-group.decisions .mem-group-h{color:#16a34a}
+.mem-group.todos .mem-group-h{color:#d97706}
+.mem-group.questions .mem-group-h{color:#7c3aed}
+.mem-count{font-size:10px;font-weight:700;letter-spacing:0;text-transform:none;color:#64748b;background:#f1f5f9;padding:1px 7px;border-radius:999px}
+.mem-summary{margin:0;line-height:1.7}
+.mem-item{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;padding:6px 0;border-top:1px solid #f1f5f9;font-size:13.5px;line-height:1.55}
+.mem-group-h + .mem-item{border-top:none;padding-top:0}
+.mem-item-t{flex:1;min-width:200px}
+.mem-group .todo{background:#f8fafc}
 .todo{
   display:flex;align-items:flex-start;gap:8px;padding:6px 8px;
   border-radius:8px;border:1px solid #e2e8f0;background:#fff;margin-bottom:6px;
@@ -917,73 +933,52 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .mem-prov ul{padding-left:20px;margin:4px 0}
 .content .rationale{font-style:italic;color:#64748b}
 
-/* ---- Memory view ---- */
-.mv-list{max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:4px;background:#fff}
-.mv-list::-webkit-scrollbar{width:5px}
-.mv-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
-.mv-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px}
-.mv-row:hover{background:#f8fafc}
-.mv-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;flex-shrink:0}
-.mv-dot.on{background:#7c3aed}
-.mv-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b;font-weight:500}
-.mv-date{font-size:11px;color:#94a3b8;white-space:nowrap}
-.mv-snippet{font-size:12px;color:#475569;padding:0 8px 8px 34px;line-height:1.5}
-.mv-snippet mark{background:#fef08a;color:#1e293b;border-radius:2px;padding:0 1px}
-.mv-sub{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px}
-.mv-sel-head{display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px;gap:8px;flex-wrap:wrap}
-.mv-sel-head > div{display:flex;gap:6px}
-.sel-chips{display:flex;flex-wrap:wrap;gap:6px}
-.sel-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#eef2ff;color:#4338ca;padding:3px 8px;border-radius:999px;font-weight:600;max-width:100%}
-.sel-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
-.sel-chip button{background:none;border:none;color:#6366f1;cursor:pointer;font-size:14px;line-height:1;padding:0}
-.sel-chip button:hover{color:#ef4444}
-.mv-proj-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
-.mv-proj-row select{flex:1;min-width:180px}
-.ask-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-.ask-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
-.ask-answer{
-  margin-top:12px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
-  font-size:14px;line-height:1.7;color:#334155;
+/* ---- Memory view: tag cards -> meeting cards ---- */
+.mv-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.mv-top .search-bar{flex:1;min-width:220px;max-width:380px;margin:0}
+.mv-crumb{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mv-crumb-t{font-size:18px;font-weight:700;color:#1e293b}
+.mv-sub{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin:22px 0 8px}
+.mv-sub-hint{font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
+.tc-grid,.mc-grid{display:grid;gap:12px}
+.tc-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.mc-grid{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+.tc,.mc{
+  background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s,box-shadow .15s;
 }
-.ask-answer h1{font-size:17px;font-weight:700;color:#1e293b;margin:12px 0 8px}
-.ask-answer h2{font-size:15px;font-weight:700;color:#334155;margin:12px 0 6px}
-.ask-answer h3{font-size:14px;font-weight:600;color:#475569;margin:10px 0 4px}
-.ask-answer p{margin:6px 0}
-.ask-answer ul,.ask-answer ol{padding-left:22px;margin:6px 0}
-.ask-answer li{margin:3px 0}
-.ask-answer strong{color:#1e293b}
-.ask-answer .ts{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:12px;color:#6366f1;background:#eef2ff;padding:1px 5px;border-radius:4px}
-.sources{margin-top:10px;font-size:13px;color:#334155}
-.sources ul{list-style:none;padding:0;margin:4px 0}
-.sources li{padding:3px 0}
-.sources a{color:#6366f1;cursor:pointer;text-decoration:none;font-weight:600}
-.sources a:hover{text-decoration:underline}
-.todo-group{margin-bottom:12px}
-.tl{list-style:none;margin:10px 0 0 6px;padding:0 0 0 18px;border-left:2px solid #e2e8f0;position:relative}
-.tl-meeting{position:relative;margin-bottom:18px}
-.tl-meeting::before{content:'';position:absolute;left:-25px;top:5px;width:10px;height:10px;border-radius:50%;background:#6366f1;border:2px solid #fff;box-shadow:0 0 0 2px #e0e7ff}
-.tl-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px}
-.tl-date{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:11px;color:#64748b}
-.tl-title{font-size:13px;font-weight:700;color:#1e293b;cursor:pointer}
-.tl-title:hover{color:#6366f1}
-.tl-counts{font-size:11px}
-.tl-none{margin:2px 0 6px}
-.tl-notes{font-size:12px;color:#475569;background:#f8fafc;border:1px solid #f1f5f9;border-radius:8px;padding:6px 10px}
-.tl-notes ul{margin:2px 0 6px 16px;padding:0}
-.tl-notes li{margin:2px 0}
-.tl-notes .ts{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:11px;color:#6366f1}
-.tl-notes-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-top:4px}
-.tl-notes .rationale{color:#64748b;font-style:italic}
-.tl-filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.tl-status{display:flex;gap:4px}
-.tl-status .tf,.tl-tags .tf{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer}
-.tl-status .tf.on,.tl-tags .tf.on{background:#6366f1;border-color:#6366f1;color:#fff}
-.tl-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.tl-tags .tf .n{opacity:.7;font-size:10px}
-.tl-notes-toggle{font-size:12px;color:#64748b;display:flex;align-items:center;gap:4px;cursor:pointer}
-.todo-group-h{font-size:13px;font-weight:700;color:#334155;margin-bottom:6px}
-.todo-group-h a{color:#334155;cursor:pointer;text-decoration:none}
-.todo-group-h a:hover{color:#6366f1}
+.tc:hover,.mc:hover{border-color:#c7d2fe;box-shadow:0 4px 12px rgba(99,102,241,.12)}
+.tc{border-left:4px solid #8b5cf6;display:flex;flex-direction:column;gap:6px;min-height:92px}
+.tc.none{border-left-color:#e2e8f0}
+.tc-name{font-size:15px;font-weight:700;color:#1e293b;word-break:break-word}
+.tc-note{font-size:12px;color:#64748b;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tc-foot{margin-top:auto;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px;color:#94a3b8}
+.tc-open{color:#d97706;font-weight:600}
+.mc{display:flex;flex-direction:column;gap:6px;position:relative}
+.mc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.mc-title{font-size:14px;font-weight:700;color:#1e293b;line-height:1.35;word-break:break-word}
+.mc-date{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:11px;color:#94a3b8}
+.mc-tags{display:flex;flex-wrap:wrap;gap:4px}
+.mc-tags .s-tag{margin-left:0}
+.mc-tags:empty{display:none}
+.mc-sum{font-size:12.5px;color:#475569;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.mc-sum mark{background:#fef08a;color:#1e293b;border-radius:2px;padding:0 1px}
+.mc-foot{margin-top:auto;padding-top:6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px;color:#64748b}
+.mc-nomem{color:#94a3b8;font-style:italic}
+.mc-tagwrap{position:relative;flex-shrink:0}
+.mc-tagbtn{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;white-space:nowrap}
+.mc-tagbtn:hover{border-color:#c7d2fe;color:#6366f1;background:#eef2ff}
+.mc-tagmenu{
+  position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:180px;max-height:260px;overflow-y:auto;
+  background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(15,23,42,.14);cursor:default;
+}
+.mc-tagopt{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:13px;color:#334155;cursor:pointer}
+.mc-tagopt:hover{background:#f8fafc}
+.mc-tagmenu .tag-input{width:100%;margin-top:4px;box-sizing:border-box;min-width:0}
+@media(max-width:768px){
+  .v-body{flex-direction:column-reverse}
+  .tabs{flex-direction:row;flex-wrap:wrap;width:auto;position:static}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
@@ -1151,74 +1146,18 @@ select:disabled{opacity:.45;cursor:not-allowed}
   </div>
   </div><!-- /#new-recording-view -->
 
-  <!-- Memory view -->
+  <!-- Memory view: tag cards -> meeting cards; a meeting opens in the viewer -->
   <div id="memory-view" style="display:none">
-    <div class="card">
-      <div class="card-label">Meetings</div>
+    <div class="mv-top">
+      <div class="mv-crumb" id="mv-crumb"></div>
       <div class="search-bar">
         <input type="text" id="mv-search" placeholder="Search meeting memory..." onkeydown="if(event.key==='Enter')mvSearch()">
         <button onclick="mvSearch()">Search</button>
         <button class="clear-btn" id="mv-search-clear" onclick="mvClearSearch()" style="display:none">X</button>
       </div>
-      <div class="msg" id="mv-search-msg"></div>
-      <div class="mv-list" id="mv-search-results" style="display:none"></div>
-      <div class="mv-sub">Recent meetings</div>
-      <div class="mv-list" id="mv-recent"><div class="empty">Loading...</div></div>
-      <div class="mv-sel-head">
-        <span class="mv-sub" style="margin:0">Selected meetings</span>
-        <div>
-          <button class="btn sm" onclick="mvSelectAllShown()">Select all shown</button>
-          <button class="btn sm" onclick="mvClearSel()">Clear</button>
-        </div>
-      </div>
-      <div class="sel-chips" id="mv-sel-chips"><span class="muted">No meetings selected.</span></div>
     </div>
-    <div class="card" id="tl-card">
-      <div class="q-head">
-        <div class="card-label" style="margin-bottom:0">Timeline</div>
-        <div class="tl-filters">
-          <div class="tl-status">
-            <button class="tf on" data-status="open" onclick="tlSetStatus('open')">Open to-dos</button>
-            <button class="tf" data-status="done" onclick="tlSetStatus('done')">Done</button>
-            <button class="tf" data-status="all" onclick="tlSetStatus('all')">All</button>
-          </div>
-          <label class="tl-notes-toggle"><input type="checkbox" id="tl-notes" checked onchange="mvLoadTimeline()"> Decisions &amp; open questions</label>
-        </div>
-      </div>
-      <div class="q-note">Meeting by meeting, newest first. Tick a to-do to mark it done; open the meeting to edit or add to-dos. The selection above narrows the timeline.</div>
-      <div class="tl-tags" id="tl-tags" style="display:none"></div>
-      <div class="helper-text" id="tl-note" style="margin-top:8px"></div>
-      <div class="msg" id="mv-todo-msg"></div>
-      <div id="mv-todos"><div class="empty">Loading...</div></div>
-    </div>
-    <div class="card">
-      <div class="card-label">Projects</div>
-      <div class="mv-proj-row">
-        <select id="mv-project" onchange="mvProjectChanged()"><option value="">Choose a project...</option></select>
-        <button class="btn danger sm" id="mv-proj-del" onclick="mvDeleteProject()" disabled>Delete project</button>
-      </div>
-      <div class="mv-proj-row">
-        <input type="text" id="mv-proj-name" class="inline-input" placeholder="Project name" onkeydown="if(event.key==='Enter')mvSaveProject()">
-        <button class="btn primary sm" onclick="mvSaveProject()">Save selection as project</button>
-      </div>
-      <div class="msg" id="mv-proj-msg"></div>
-    </div>
-    <div class="card">
-      <div class="card-label">Ask</div>
-      <div class="ask-quick">
-        <button class="btn sm" onclick="mvQuick('Summarize the shared context')">Summarize the shared context</button>
-        <button class="btn sm" onclick="mvQuick('What was decided?')">What was decided?</button>
-        <button class="btn sm" onclick="mvQuick('What is still open?')">What is still open?</button>
-      </div>
-      <textarea id="mv-question" class="chat-input" rows="3" style="width:100%;max-height:none" placeholder="Ask about the selected meetings..."></textarea>
-      <div class="ask-row">
-        <button class="btn primary" id="mv-ask-btn" onclick="mvAsk()">Ask Claude</button>
-        <span class="helper-text" style="margin:0">Only stored meeting memory is sent, not full transcripts.</span>
-      </div>
-      <div class="msg" id="mv-ask-msg"></div>
-      <div class="ask-answer" id="mv-answer" style="display:none"></div>
-      <div class="sources" id="mv-sources"></div>
-    </div>
+    <div class="msg" id="mv-search-msg"></div>
+    <div id="mv-body"><div class="empty">Loading...</div></div>
   </div><!-- /#memory-view -->
 
   <!-- Viewer -->
@@ -1226,6 +1165,7 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <div class="v-head">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="min-width:0;flex:1">
+          <button class="btn sm v-back" id="v-back" style="display:none" onclick="closeViewerBack()">← Memory</button>
           <div class="v-title" id="v-title"></div>
           <div class="v-meta" id="v-meta"></div>
           <div class="tag-editor v-tags" id="v-tags"></div>
@@ -1234,16 +1174,20 @@ select:disabled{opacity:.45;cursor:not-allowed}
             <div class="helper-text">Tags and notes go to Claude as your context with every analysis, memory update and question about this meeting.</div>
           </div>
         </div>
-        <button class="viewer-close" onclick="showNewRecordingView()" title="Close viewer">&times;</button>
+        <button class="viewer-close" onclick="closeViewerBack()" title="Close viewer">&times;</button>
       </div>
     </div>
-    <div class="tabs" id="tabs"></div>
-    <div class="content" id="content"></div>
-    <div class="processing-overlay" id="processing-overlay">
-      <div class="proc-step" id="proc-step">Processing...</div>
-      <div class="proc-pct" id="proc-pct">0%</div>
-      <div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div>
-      <div class="proc-steps" id="proc-steps"></div>
+    <div class="v-body">
+      <div class="v-main">
+        <div class="content" id="content"></div>
+        <div class="processing-overlay" id="processing-overlay">
+          <div class="proc-step" id="proc-step">Processing...</div>
+          <div class="proc-pct" id="proc-pct">0%</div>
+          <div class="proc-bar-wrap"><div class="proc-bar" id="proc-bar"></div></div>
+          <div class="proc-steps" id="proc-steps"></div>
+        </div>
+      </div>
+      <div class="tabs" id="tabs"></div>
     </div>
     <div class="dl-row" id="dl-row"></div>
     <div class="export-row" id="export-row"></div>
@@ -1924,7 +1868,7 @@ function handleJobTransitions(jobs){
   }
   const mv=Q('#memory-view');
   if(mv&&mv.style.display!=='none'&&trans.some(t=>t.kind==='memory'&&t.to==='done')){
-    mvLoadRecent(); mvLoadTodos();
+    loadMemoryView();
   }
 }
 
@@ -2178,6 +2122,7 @@ function renderViewerFrame(sess){
   renderTagEditor('v-tags',sess.id,sess.tags||[]);
   const nt=Q('#v-notes-text'); if(nt&&document.activeElement!==nt) nt.value=sess.notes||'';
   updateViewerChip();
+  const back=Q('#v-back'); if(back) back.style.display=_viewerFrom==='memory'?'':'none';
 
   // Tabs
   const files=sess.files||{};
@@ -2185,9 +2130,9 @@ function renderViewerFrame(sess){
   let tabs='';
   if(!files.transcript) tabs+=tabBtn('transcribe','Transcribe');
   if(files.transcript){
+    tabs+=tabBtn('memory','Memory');
     tabs+=tabBtn('transcript','Transcript');
     tabs+=tabBtn('analysis','Analysis');
-    tabs+=tabBtn('memory','Memory');
   }
   if(files.audio) tabs+=tabBtn('audio','Audio');
   if(files.transcript) tabs+=tabBtn('chat','Chat');
@@ -2334,6 +2279,7 @@ function closeViewer(){
   viewerSession=null;
   _viewerTab=null;
   _memRecord=null;
+  _viewerFrom=null;
   document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
 }
 
@@ -2630,23 +2576,34 @@ function todoHtml(t){
   </div>`;
 }
 
+function memItemHtml(x){
+  return `<div class="mem-item"><span class="mem-item-t">${esc(x.text)}${x.rationale?` <span class="rationale">— ${esc(x.rationale)}</span>`:''}</span>${tsSpan(x.ts)}${x.verified===false?'<span class="marker">unverified</span>':''}</div>`;
+}
+function memGroupHtml(cls,label,count,body){
+  return `<section class="mem-group ${cls}">
+    <div class="mem-group-h"><span>${label}</span>${count!=null?`<span class="mem-count">${count}</span>`:''}</div>
+    ${body}
+  </section>`;
+}
+
 function renderMemory(m,j){
   const sid=viewerSession.id;
   const kps=m.key_points||[], decs=m.decisions||[], tasks=m.tasks||[], oqs=m.open_questions||[], notes=m.grounding_notes||[];
   const memFile=(viewerSession.files&&viewerSession.files.memory)||(sid+'_memory.md');
+  const none='<p class="muted">None.</p>';
+  const nOpen=tasks.filter(t=>t.status!=='done').length;
   let html='';
   if(viewerSession.files?.audio) html+='<div class="transcript-audio-bar"><div id="memory-wf-container"></div></div>';
   html+=`<div class="tab-actions">
-      <button class="btn primary" id="mem-btn" onclick="viewerGenerateMemory()"${isActiveJob(j)?' disabled':''}>Update memory</button>
+      <button class="btn primary sm" id="mem-btn" onclick="viewerGenerateMemory()"${isActiveJob(j)?' disabled':''}>Update memory</button>
       <span class="helper-text" style="margin:0">Manual edits and completed to-dos are kept.</span>
     </div>
     <div class="msg" id="mem-msg"></div>
     <div id="mem-job-status">${memoryStatusHtml(j)}</div>`;
-  if(m.tags&&m.tags.length) html+=`<div class="mem-tags">Tags:${tagChipsHtml(m.tags)}<span class="helper-text" style="margin:0">(given to Claude as context when this memory was generated)</span></div>`;
-  html+=`<div class="mem-section"><h2>Summary</h2><p>${esc(m.summary||'')||'<span class="muted">No summary.</span>'}</p></div>`;
-  html+=`<div class="mem-section"><h2>Key points</h2>${kps.length?'<ul>'+kps.map(k=>`<li>${esc(k.text)} ${tsSpan(k.ts)}${k.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
-  html+=`<div class="mem-section"><h2>Decisions</h2>${decs.length?'<ul>'+decs.map(d=>`<li>${esc(d.text)}${d.rationale?` <span class="rationale">— ${esc(d.rationale)}</span>`:''} ${tsSpan(d.ts)}${d.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
-  html+=`<div class="mem-section"><h2>To-dos</h2>
+  html+=memGroupHtml('summary','Summary',null,`<p class="mem-summary">${esc(m.summary||'')||'<span class="muted">No summary.</span>'}</p>`);
+  html+=memGroupHtml('keypoints','Key points',kps.length,kps.length?kps.map(memItemHtml).join(''):none);
+  html+=memGroupHtml('decisions','Decisions',decs.length,decs.length?decs.map(memItemHtml).join(''):none);
+  html+=memGroupHtml('todos','To-dos',tasks.length?nOpen+' open':0,`
     <div id="mem-todos">${tasks.length?tasks.map(todoHtml).join(''):'<p class="muted">No to-dos.</p>'}</div>
     <div class="todo-add">
       <input class="t" id="todo-new-text" placeholder="New to-do" onkeydown="if(event.key==='Enter')memAddTask()">
@@ -2654,9 +2611,8 @@ function renderMemory(m,j){
       <input class="d" id="todo-new-deadline" placeholder="Deadline">
       <button class="btn primary sm" onclick="memAddTask()">Add to-do</button>
     </div>
-    <div class="msg" id="todo-msg"></div>
-  </div>`;
-  html+=`<div class="mem-section"><h2>Open questions</h2>${oqs.length?'<ul>'+oqs.map(q=>`<li>${esc(q.text)} ${tsSpan(q.ts)}${q.verified===false?' <span class="marker">unverified</span>':''}</li>`).join('')+'</ul>':'<p class="muted">None.</p>'}</div>`;
+    <div class="msg" id="todo-msg"></div>`);
+  html+=memGroupHtml('questions','Open questions',oqs.length,oqs.length?oqs.map(memItemHtml).join(''):none);
   html+=`<div class="mem-prov">
     Generated ${esc(fmtDateTime(m.generated_at))} · update ${esc(String(m.generation_count||1))}${m.model?' · '+esc(m.model):''}
     <details><summary>What was left out and why</summary>${notes.length?'<ul>'+notes.map(n=>`<li>${esc(n)}</li>`).join('')+'</ul>':'<p class="muted">Nothing was left out.</p>'}</details>
@@ -3376,6 +3332,7 @@ function viewSessById(id){
 function viewSess(s){
   hideNewRecordingView();
   hideMemoryView();
+  _viewerFrom=null;
   openViewer(s);
 }
 
@@ -3389,6 +3346,7 @@ function showNewRecordingView(){
   if(v) v.style.display='';
   const w=Q('#webhooks-view-wrap');
   if(w) w.style.display='';
+  Q('.main')?.classList.remove('wide');
   Q('#new-rec-btn')?.classList.add('active');
   document.querySelectorAll('.sitem').forEach(el=>el.classList.remove('active'));
 }
@@ -3398,6 +3356,7 @@ function hideNewRecordingView(){
   if(v) v.style.display='none';
   const w=Q('#webhooks-view-wrap');
   if(w) w.style.display='none';
+  Q('.main')?.classList.add('wide');
   Q('#new-rec-btn')?.classList.remove('active');
 }
 
@@ -3453,58 +3412,208 @@ function startRename(el,sess){
 }
 
 // ===========================================================================
-// Memory view
+// Memory view: tag cards -> meeting cards -> one meeting (opens in the viewer)
 // ===========================================================================
-let _mvSel=new Map();      // session id -> title
-let _mvIndex={};           // session id -> title (from lists shown in this view)
-let _mvRecent=[];          // [{id,title,has_memory}]
-let _mvShown=[];           // rows currently shown (search results or recent)
-let _mvSearchOpen=false;
-let _mvProjects=[];
-let _mvAsking=false;
-
-function mvTitleFor(id){
-  return _mvIndex[id]||(_sessionsCache[id]&&(_sessionsCache[id].title||id))||id;
-}
+let _mvMeetings=[];        // transcribed meetings, newest first: {id,title,duration,tags,mem}
+let _mvTag=null;           // null = tag cards; otherwise the tag whose meetings are shown
+let _mvSearch=null;        // {q,items,source} while search results are shown
+let _mvMenuSid=null;       // meeting whose tag dropdown is open
+let _mvMenuDirty=false;    // tags changed while the dropdown was open
+let _viewerFrom=null;      // 'memory' when the viewer was opened from a memory card
 
 async function loadMemoryView(){
-  await Promise.all([mvLoadRecent(),mvLoadProjects()]);
-  mvRenderSel();
-  mvLoadTodos();
-}
-
-function mvRowHtml(item,extra){
-  return `<label class="mv-row">
-    <input type="checkbox" data-sid="${attr(item.id)}"${_mvSel.has(item.id)?' checked':''} onchange="mvToggle(this.dataset.sid,this.checked)">
-    <span class="mv-dot${item.has_memory?' on':''}" title="${item.has_memory?'Memory available':'No memory yet'}"></span>
-    <span class="mv-title">${esc(item.title)}</span>
-    <span class="mv-date">${esc(sessionDate(item.id))}</span>
-  </label>${extra||''}`;
-}
-
-async function mvLoadRecent(){
-  const box=Q('#mv-recent');
   try{
-    const r=await f('/api/sessions?limit=100');
-    const data=await r.json();
-    const list=(data.sessions||[]).filter(s=>s.files&&s.files.transcript);
-    (data.sessions||[]).forEach(s=>{_sessionsCache[s.id]=s});
-    _mvRecent=list.map(s=>({id:s.id,title:s.title||s.id,has_memory:!!s.has_memory}));
-    _mvRecent.forEach(it=>{_mvIndex[it.id]=it.title});
-    if(!_mvSearchOpen) _mvShown=_mvRecent;
-    box.innerHTML=_mvRecent.length?_mvRecent.map(it=>mvRowHtml(it)).join(''):'<div class="empty">No transcribed meetings yet.</div>';
+    const [rs,rm]=await Promise.all([f('/api/sessions?limit=500'),f('/api/memory'),loadTags()]);
+    const sessions=(await rs.json()).sessions||[];
+    const mem={};
+    if(rm.ok) ((await rm.json()).memories||[]).forEach(m=>{mem[m.session_id]=m});
+    sessions.forEach(s=>{_sessionsCache[s.id]=s});
+    _mvMeetings=sessions.filter(s=>s.files&&s.files.transcript)
+      .map(s=>({id:s.id,title:s.title||s.id,duration:s.duration,tags:s.tags||[],mem:mem[s.id]||null}));
   }catch(e){
-    box.innerHTML='<div class="empty">Could not load meetings.</div>';
+    Q('#mv-body').innerHTML='<div class="empty">Could not load meetings.</div>';
+    return;
   }
+  mvRender();
 }
 
+function mvHasTag(m,name){
+  const k=String(name).toLowerCase();
+  return (m.tags||[]).some(t=>t.toLowerCase()===k);
+}
+function mvFind(sid){
+  return _mvMeetings.find(m=>m.id===sid)||(_mvSearch&&_mvSearch.items.find(m=>m.id===sid))||null;
+}
+function mvPlural(n,word){return n+' '+word+(n===1?'':'s')}
+
+function mvCardHtml(m){
+  const mm=m.mem;
+  const foot=mm
+    ?`<span><strong>${mm.tasks_open}</strong> open · ${mm.tasks_done} done</span>${mm.decisions_count?`<span>${mvPlural(mm.decisions_count,'decision')}</span>`:''}`
+    :'<span class="mc-nomem">No memory yet</span>';
+  const text=m.snippet?safeSnippet(m.snippet):esc((mm&&mm.summary)||'');
+  return `<div class="mc" data-sid="${attr(m.id)}" onclick="mvOpenMeeting('${attr(m.id)}')">
+    <div class="mc-top">
+      <div class="mc-title">${esc(m.title)}</div>
+      <div class="mc-tagwrap" onclick="event.stopPropagation()">
+        <button class="mc-tagbtn" title="Tag this meeting" onclick="mvToggleTagMenu('${attr(m.id)}')">Tags ▾</button>
+        <div class="mc-tagmenu" style="display:none"></div>
+      </div>
+    </div>
+    <div class="mc-date">${esc(sessionDate(m.id))}${m.duration?' · '+esc(fmtDur(m.duration)):''}</div>
+    <div class="mc-tags">${tagChipsHtml(m.tags)}</div>
+    ${text?`<div class="mc-sum">${text}</div>`:''}
+    <div class="mc-foot">${foot}</div>
+  </div>`;
+}
+function mvGridHtml(list){
+  return '<div class="mc-grid">'+list.map(mvCardHtml).join('')+'</div>';
+}
+
+function mvTagCardHtml(t){
+  const list=_mvMeetings.filter(m=>mvHasTag(m,t.name));
+  const open=list.reduce((n,m)=>n+((m.mem&&m.mem.tasks_open)||0),0);
+  return `<div class="tc${list.length?'':' none'}" onclick="mvOpenTag('${attr(t.name)}')">
+    <div class="tc-name">${esc(t.name)}</div>
+    ${t.note?`<div class="tc-note">${esc(t.note)}</div>`:''}
+    <div class="tc-foot"><span>${list.length?mvPlural(list.length,'meeting'):'No meetings yet'}</span>${open?`<span class="tc-open">${mvPlural(open,'open to-do')}</span>`:''}</div>
+  </div>`;
+}
+
+function mvRender(){
+  _mvMenuSid=null; _mvMenuDirty=false;
+  const body=Q('#mv-body'), crumb=Q('#mv-crumb');
+  if(!body||!crumb)return;
+  if(_mvSearch){
+    crumb.innerHTML=`<button class="btn sm" onclick="mvClearSearch()">← Back</button><span class="mv-crumb-t">Results for “${esc(_mvSearch.q)}”</span>`;
+    const note=_mvSearch.source==='transcript'&&_mvSearch.items.length?'<div class="muted" style="margin-bottom:8px">No memory matches; showing transcript matches.</div>':'';
+    body.innerHTML=_mvSearch.items.length?note+mvGridHtml(_mvSearch.items):`<div class="empty">No matches for “${esc(_mvSearch.q)}”.</div>`;
+    return;
+  }
+  if(_mvTag!==null){
+    const list=_mvMeetings.filter(m=>mvHasTag(m,_mvTag));
+    crumb.innerHTML=`<button class="btn sm" onclick="mvOpenTag(null)">← All tags</button><span class="mv-crumb-t">${esc(_mvTag)}</span><span class="muted">${mvPlural(list.length,'meeting')}</span>`;
+    body.innerHTML=list.length?mvGridHtml(list):'<div class="empty">No transcribed meetings carry this tag yet.</div>';
+    return;
+  }
+  crumb.innerHTML='<span class="mv-crumb-t">Memory</span><span class="muted">Pick a tag to see its meetings.</span>';
+  const tags=_tagVocab.map(t=>({name:t.name,note:t.note||''}));
+  _mvMeetings.forEach(m=>m.tags.forEach(n=>{
+    if(!tags.some(t=>t.name.toLowerCase()===n.toLowerCase())) tags.push({name:n,note:''});
+  }));
+  const untagged=_mvMeetings.filter(m=>!m.tags.length);
+  let html='';
+  if(tags.length) html+='<div class="tc-grid">'+tags.map(mvTagCardHtml).join('')+'</div>';
+  else html+='<div class="empty">No tags yet. Use “Tags ▾” on a meeting below to create the first one.</div>';
+  if(untagged.length){
+    html+=`<div class="mv-sub">Untagged meetings <span class="mv-sub-hint">Use “Tags ▾” on a card to file it.</span></div>`+mvGridHtml(untagged);
+  }else if(!_mvMeetings.length){
+    html+='<div class="empty">No transcribed meetings yet.</div>';
+  }
+  body.innerHTML=html;
+}
+
+function mvOpenTag(name){
+  _mvTag=name;
+  _mvSearch=null;
+  Q('#mv-search').value='';
+  Q('#mv-search-clear').style.display='none';
+  mvRender();
+}
+
+async function mvOpenMeeting(sid){
+  mvCloseTagMenu();
+  const s=_sessionsCache[sid]||await fetchSession(sid);
+  if(!s){toast('Meeting not found: '+sid);return}
+  hideNewRecordingView();
+  hideMemoryView();
+  _viewerFrom='memory';
+  Q('#memory-nav-btn')?.classList.add('active');
+  openViewer(s,(s.files&&s.files.transcript)?'memory':undefined);
+}
+
+// Leaving a meeting returns to where it was opened from.
+function closeViewerBack(){
+  if(_viewerFrom==='memory') showMemoryView();
+  else showNewRecordingView();
+}
+
+// Tag dropdown on a meeting card ------------------------------------------------
+function mvCardEl(sid){
+  return Q(`#mv-body .mc[data-sid="${CSS.escape(sid)}"]`);
+}
+function mvTagMenuHtml(m){
+  const names=_tagVocab.map(t=>t.name);
+  (m.tags||[]).forEach(n=>{if(!names.some(x=>x.toLowerCase()===n.toLowerCase())) names.push(n)});
+  return names.map(n=>`<label class="mc-tagopt"><input type="checkbox" value="${attr(n)}"${mvHasTag(m,n)?' checked':''} onchange="mvTagToggle('${attr(m.id)}',this)"> ${esc(n)}</label>`).join('')+
+    `<input type="text" class="tag-input" placeholder="New tag…" onkeydown="if(event.key==='Enter'){event.preventDefault();mvTagNew('${attr(m.id)}',this)}">
+    <div class="msg mc-tagmsg" style="margin:0"></div>`;
+}
+function mvToggleTagMenu(sid){
+  const wasOpen=_mvMenuSid===sid;
+  mvCloseTagMenu();
+  if(wasOpen)return;
+  const m=mvFind(sid), card=mvCardEl(sid);
+  if(!m||!card)return;
+  const menu=card.querySelector('.mc-tagmenu');
+  menu.innerHTML=mvTagMenuHtml(m);
+  menu.style.display='';
+  _mvMenuSid=sid;
+}
+function mvCloseTagMenu(){
+  if(!_mvMenuSid)return;
+  const card=mvCardEl(_mvMenuSid);
+  if(card) card.querySelector('.mc-tagmenu').style.display='none';
+  _mvMenuSid=null;
+  // Re-file the card (it may have moved to another tag) only once the menu is closed.
+  if(_mvMenuDirty) mvRender();
+}
+document.addEventListener('click',e=>{
+  if(_mvMenuSid&&!e.target.closest('.mc-tagwrap')) mvCloseTagMenu();
+});
+async function mvSaveTags(sid,names){
+  const m=mvFind(sid), card=mvCardEl(sid);
+  if(!m)return false;
+  const res=await postJson(`/api/sessions/${encodeURIComponent(sid)}/tags`,{tags:names});
+  if(!res.ok){
+    const msg=card&&card.querySelector('.mc-tagmsg');
+    if(msg){msg.textContent=res.error||'Could not save tags';msg.className='msg mc-tagmsg err';}
+    return false;
+  }
+  m.tags=res.data.tags||[];
+  if(_sessionsCache[sid]) _sessionsCache[sid].tags=m.tags;
+  if(res.data.vocabulary) applyTagVocab(res.data.vocabulary);
+  _mvMenuDirty=true;
+  if(card){
+    card.querySelector('.mc-tags').innerHTML=tagChipsHtml(m.tags);
+    if(_mvMenuSid===sid) card.querySelector('.mc-tagmenu').innerHTML=mvTagMenuHtml(m);
+  }
+  loadSessions();
+  return true;
+}
+async function mvTagToggle(sid,cb){
+  const m=mvFind(sid);
+  if(!m)return;
+  const name=cb.value, k=name.toLowerCase();
+  const names=cb.checked?m.tags.concat([name]):m.tags.filter(n=>n.toLowerCase()!==k);
+  cb.disabled=true;
+  const ok=await mvSaveTags(sid,names);
+  if(!ok){cb.disabled=false;cb.checked=!cb.checked;}
+}
+async function mvTagNew(sid,inp){
+  const m=mvFind(sid), v=(inp.value||'').trim();
+  if(!m||!v)return;
+  if(mvHasTag(m,v)){inp.value='';return}
+  await mvSaveTags(sid,m.tags.concat([v]));
+  const again=mvCardEl(sid)?.querySelector('.mc-tagmenu .tag-input'); if(again) again.focus();
+}
+
+// Search ---------------------------------------------------------------------
 async function mvSearch(){
   const q=Q('#mv-search').value.trim();
   if(!q){mvClearSearch();return}
-  const box=Q('#mv-search-results');
-  box.style.display='';
   Q('#mv-search-clear').style.display='inline-block';
-  box.innerHTML='<div class="empty">Searching...</div>';
+  Q('#mv-body').innerHTML='<div class="empty">Searching...</div>';
   setMsg('#mv-search-msg','');
   let results=[], source='memory';
   try{
@@ -3520,301 +3629,24 @@ async function mvSearch(){
     }catch(e){}
     if(!Array.isArray(results)) results=[];
   }
-  _mvSearchOpen=true;
-  const items=results.map(x=>{
+  const seen=new Set(), items=[];
+  results.forEach(x=>{
     const id=x.session_id;
-    const known=_mvRecent.find(it=>it.id===id);
-    const title=x.title||(known&&known.title)||id;
-    _mvIndex[id]=title;
-    return {id,title,has_memory:source==='memory'||!!(known&&known.has_memory),snippet:x.snippet||''};
+    if(!id||seen.has(id))return;
+    seen.add(id);
+    const known=_mvMeetings.find(m=>m.id===id);
+    items.push(Object.assign({id,title:x.title||id,duration:0,tags:[],mem:null},known||{},{snippet:x.snippet||''}));
   });
-  _mvShown=items;
-  if(!items.length){
-    box.innerHTML=`<div class="empty">No matches for "${esc(q)}".</div>`;
-    return;
-  }
-  const note=source==='transcript'?'<div class="muted" style="padding:6px 8px">No memory matches; showing transcript matches.</div>':'';
-  box.innerHTML=note+items.map(it=>mvRowHtml(it,it.snippet?`<div class="mv-snippet">${safeSnippet(it.snippet)}</div>`:'')).join('');
+  _mvSearch={q,items,source};
+  mvRender();
 }
 
 function mvClearSearch(){
   Q('#mv-search').value='';
-  const box=Q('#mv-search-results');
-  box.style.display='none';
-  box.innerHTML='';
   Q('#mv-search-clear').style.display='none';
   setMsg('#mv-search-msg','');
-  _mvSearchOpen=false;
-  _mvShown=_mvRecent;
-}
-
-function mvToggle(id,checked){
-  if(checked) _mvSel.set(id,mvTitleFor(id));
-  else _mvSel.delete(id);
-  mvRenderSel();
-  mvSyncChecks();
-  mvLoadTodos();
-}
-
-function mvSyncChecks(){
-  document.querySelectorAll('#memory-view input[data-sid]').forEach(cb=>{cb.checked=_mvSel.has(cb.dataset.sid)});
-}
-
-function mvRenderSel(){
-  const box=Q('#mv-sel-chips');
-  if(!_mvSel.size){box.innerHTML='<span class="muted">No meetings selected.</span>';return}
-  box.innerHTML=Array.from(_mvSel.entries()).map(([id,title])=>
-    `<span class="sel-chip" title="${attr(id)}"><span>${esc(title)}</span><button title="Remove" onclick="mvToggle('${attr(id)}',false)">&times;</button></span>`
-  ).join('');
-}
-
-function mvSelectAllShown(){
-  (_mvShown||[]).forEach(it=>_mvSel.set(it.id,it.title));
-  mvRenderSel(); mvSyncChecks(); mvLoadTodos();
-}
-
-function mvClearSel(){
-  _mvSel.clear();
-  mvRenderSel(); mvSyncChecks(); mvLoadTodos();
-}
-
-// Projects -----------------------------------------------------------------
-async function mvLoadProjects(){
-  const sel=Q('#mv-project');
-  const current=sel.value;
-  try{
-    const r=await f('/api/memory/projects');
-    if(!r.ok){
-      let d={};try{d=await r.json()}catch(e){}
-      setMsg('#mv-proj-msg','Projects unavailable: '+(d.error||('error '+r.status)),'err');
-      _mvProjects=[];
-    }else{
-      const data=await r.json();
-      _mvProjects=data.projects||[];
-    }
-  }catch(e){_mvProjects=[]}
-  sel.innerHTML='<option value="">Choose a project...</option>'+_mvProjects.map(p=>
-    `<option value="${attr(p.id)}"${p.id===current?' selected':''}>${esc(p.name)} (${(p.session_ids||[]).length})</option>`).join('');
-  Q('#mv-proj-del').disabled=!sel.value;
-}
-
-function mvProjectChanged(){
-  const id=Q('#mv-project').value;
-  const p=_mvProjects.find(x=>x.id===id);
-  Q('#mv-proj-del').disabled=!p;
-  setMsg('#mv-proj-msg','');
-  if(!p)return;
-  _mvSel=new Map((p.session_ids||[]).map(sid=>[sid,mvTitleFor(sid)]));
-  Q('#mv-proj-name').value=p.name;
-  mvRenderSel(); mvSyncChecks(); mvLoadTodos();
-}
-
-async function mvSaveProject(){
-  const name=Q('#mv-proj-name').value.trim();
-  if(!name){setMsg('#mv-proj-msg','Enter a project name first.','err');return}
-  if(!_mvSel.size){setMsg('#mv-proj-msg','Select at least one meeting first.','err');return}
-  const ids=Array.from(_mvSel.keys());
-  const curId=Q('#mv-project').value;
-  const cur=_mvProjects.find(x=>x.id===curId);
-  let res;
-  if(cur&&cur.name===name){
-    res=await postJson(`/api/memory/projects/${encodeURIComponent(cur.id)}`,{session_ids:ids},'PUT');
-    if(!res.ok){setMsg('#mv-proj-msg',res.error,'err');return}
-    await mvLoadProjects();
-    setMsg('#mv-proj-msg','Project updated.','ok');
-  }else{
-    res=await postJson('/api/memory/projects',{name,session_ids:ids});
-    if(!res.ok){setMsg('#mv-proj-msg',res.error,'err');return}
-    await mvLoadProjects();
-    const p=res.data.project;
-    if(p&&p.id){Q('#mv-project').value=p.id;Q('#mv-proj-del').disabled=false;}
-    setMsg('#mv-proj-msg','Project saved.','ok');
-  }
-}
-
-async function mvDeleteProject(){
-  const id=Q('#mv-project').value;
-  const p=_mvProjects.find(x=>x.id===id);
-  if(!p)return;
-  if(!confirm(`Delete project "${p.name}"? Meetings and their memory are kept.`))return;
-  let ok=false, err='';
-  try{
-    const r=await f(`/api/memory/projects/${encodeURIComponent(id)}`,{method:'DELETE'});
-    ok=r.ok;
-    if(!ok){let d={};try{d=await r.json()}catch(e){} err=d.error||('Request failed ('+r.status+')');}
-  }catch(e){err='Network error: '+e.message}
-  if(!ok){setMsg('#mv-proj-msg',err,'err');return}
-  Q('#mv-project').value='';
-  Q('#mv-proj-name').value='';
-  await mvLoadProjects();
-  setMsg('#mv-proj-msg','Project deleted.','ok');
-}
-
-// Ask ----------------------------------------------------------------------
-function mvQuick(text){
-  Q('#mv-question').value=text;
-  Q('#mv-question').focus();
-}
-
-async function mvAsk(){
-  if(_mvAsking)return;
-  const q=Q('#mv-question').value.trim();
-  if(!q){setMsg('#mv-ask-msg','Type a question first.','err');return}
-  const projectId=Q('#mv-project').value||null;
-  if(!_mvSel.size&&!projectId){setMsg('#mv-ask-msg','Select at least one meeting (or a project) first.','err');return}
-  const btn=Q('#mv-ask-btn');
-  _mvAsking=true;
-  btn.disabled=true;
-  btn.innerHTML='<span class="spin-sm" style="border-color:rgba(255,255,255,.4);border-top-color:#fff"></span> Asking Claude…';
-  setMsg('#mv-ask-msg','');
-  Q('#mv-answer').style.display='none';
-  Q('#mv-sources').innerHTML='';
-  const res=await postJson('/api/memory/ask',{question:q,session_ids:Array.from(_mvSel.keys()),project_id:projectId});
-  _mvAsking=false;
-  btn.disabled=false;
-  btn.textContent='Ask Claude';
-  if(!res.ok){setMsg('#mv-ask-msg',res.error,'err');return}
-  const d=res.data||{};
-  const ans=Q('#mv-answer');
-  ans.innerHTML=renderMd(d.answer||'')||'<span class="muted">No answer.</span>';
-  ans.style.display='';
-  const srcs=d.sources||[], omitted=d.omitted||[];
-  let html='';
-  if(srcs.length){
-    html+='<div><strong>Sources</strong></div><ul>'+srcs.map(s=>{
-      const marks=[];
-      if(s.source==='none') marks.push('(no memory yet)');
-      if(s.source==='analysis') marks.push('(analysis excerpt)');
-      if(s.truncated) marks.push('(truncated)');
-      return `<li><a onclick="openSessionById('${attr(s.session_id)}')">${esc(s.label||s.title||s.session_id)}</a>${marks.length?' <span class="muted">'+esc(marks.join(' '))+'</span>':''}</li>`;
-    }).join('')+'</ul>';
-  }
-  if(omitted.length){
-    html+=`<div class="muted">Not included (limit reached): ${esc(omitted.map(mvTitleFor).join(', '))}</div>`;
-  }
-  Q('#mv-sources').innerHTML=html;
-}
-
-// Open to-dos --------------------------------------------------------------
-function mvTodoHtml(t){
-  return `<label class="todo">
-    <input type="checkbox" onchange="mvTaskDone('${attr(t.id)}',this)">
-    <div class="todo-body">
-      <span class="todo-text">${esc(t.text)}</span>
-      ${t.owner?`<span class="owner-pill">${esc(t.owner)}</span>`:''}
-      ${t.deadline?`<span class="deadline-pill">${esc(t.deadline)}</span>`:''}
-      ${t.ts?`<span class="ts">[${esc(t.ts)}]</span>`:''}
-      ${t.verified===false?'<span class="marker">unverified</span>':''}
-      ${t.stale?'<span class="marker stale">not in latest update</span>':''}
-    </div>
-  </label>`;
-}
-
-// Timeline: to-dos and notes per meeting, newest first ------------------------
-let _tlStatus='open';
-let _tlTag='';
-function tlSetStatus(s){
-  _tlStatus=s;
-  document.querySelectorAll('#tl-card .tl-status .tf').forEach(b=>b.classList.toggle('on',b.dataset.status===s));
-  mvLoadTimeline();
-}
-function tlSetTag(name){
-  _tlTag=name||'';
-  mvLoadTimeline();
-}
-function tlRenderTags(tags){
-  const el=Q('#tl-tags');
-  if(!el)return;
-  if(!tags.length){el.style.display='none';return}
-  el.style.display='';
-  el.innerHTML=`<button class="tf${_tlTag?'':' on'}" onclick="tlSetTag('')">All tags</button>`+
-    tags.map(t=>`<button class="tf${_tlTag.toLowerCase()===t.name.toLowerCase()?' on':''}" onclick="tlSetTag('${attr(t.name)}')" title="${attr(t.note||'')}">${esc(t.name)} <span class="n">${t.count}</span></button>`).join('');
-}
-function tlTodoHtml(t){
-  const done=t.status==='done';
-  return `<label class="todo${done?' done':''}${t.stale?' stale':''}" data-id="${attr(t.id)}">
-    <input type="checkbox"${done?' checked':''} onchange="tlTaskToggle('${attr(t.id)}',this)">
-    <div class="todo-body">
-      <span class="todo-text">${esc(t.text)}</span>
-      ${t.owner?`<span class="owner-pill">${esc(t.owner)}</span>`:''}
-      ${t.deadline?`<span class="deadline-pill">${esc(t.deadline)}</span>`:''}
-      ${t.ts?`<span class="ts">[${esc(t.ts)}]</span>`:''}
-      ${t.verified===false?'<span class="marker">unverified</span>':''}
-      ${t.stale?'<span class="marker stale">not in latest update</span>':''}
-    </div>
-  </label>`;
-}
-function tlMeetingHtml(m){
-  const tasks=(m.tasks||[]).map(tlTodoHtml).join('');
-  const notes=[];
-  if(m.decisions&&m.decisions.length) notes.push(`<div class="tl-notes-h">Decisions</div><ul>${m.decisions.map(x=>`<li>${esc(x.text)}${x.rationale?` <span class="rationale">— ${esc(x.rationale)}</span>`:''}${x.ts?` <span class="ts">[${esc(x.ts)}]</span>`:''}</li>`).join('')}</ul>`);
-  if(m.open_questions&&m.open_questions.length) notes.push(`<div class="tl-notes-h">Open questions</div><ul>${m.open_questions.map(x=>`<li>${esc(x.text)}${x.ts?` <span class="ts">[${esc(x.ts)}]</span>`:''}</li>`).join('')}</ul>`);
-  const none=_tlStatus==='open'?'No open to-dos.':_tlStatus==='done'?'Nothing marked done.':'No to-dos.';
-  return `<li class="tl-meeting" data-sid="${attr(m.session_id)}">
-    <div class="tl-head">
-      <span class="tl-date">${esc(m.date)}</span>
-      <a class="tl-title" onclick="openSessionById('${attr(m.session_id)}')">${esc(m.title)}</a>
-      ${tagChipsHtml(m.tags)}
-      <span class="tl-counts muted"><span class="tl-open">${m.tasks_open}</span> open · <span class="tl-done">${m.tasks_done}</span> done</span>
-    </div>
-    ${tasks?`<div class="tl-todos">${tasks}</div>`:`<div class="muted tl-none">${none}</div>`}
-    ${notes.length?`<div class="tl-notes">${notes.join('')}</div>`:''}
-  </li>`;
-}
-async function mvLoadTimeline(){
-  const box=Q('#mv-todos');
-  if(!box)return;
-  const notesOn=!Q('#tl-notes')||Q('#tl-notes').checked;
-  let url=`/api/memory/timeline?status=${encodeURIComponent(_tlStatus)}&notes=${notesOn?1:0}`;
-  if(_tlTag) url+='&tag='+encodeURIComponent(_tlTag);
-  if(_mvSel.size) url+=Array.from(_mvSel.keys()).map(id=>'&session_id='+encodeURIComponent(id)).join('');
-  let d;
-  try{
-    const r=await f(url);
-    if(!r.ok){
-      let e={};try{e=await r.json()}catch(x){}
-      box.innerHTML=`<div class="empty">Timeline unavailable: ${esc(e.error||('error '+r.status))}</div>`;
-      return;
-    }
-    d=await r.json();
-  }catch(e){box.innerHTML='<div class="empty">Could not load the timeline.</div>';return}
-  tlRenderTags(d.tags||[]);
-  const scope=_mvSel.size?`${_mvSel.size} selected meeting${_mvSel.size===1?'':'s'}`:'all meetings with memory';
-  const totals=d.totals||{open:0,done:0};
-  Q('#tl-note').textContent=`${totals.open} open · ${totals.done} done across ${scope}${_tlTag?` tagged “${_tlTag}”`:''}.`;
-  const meetings=d.meetings||[];
-  if(!meetings.length){
-    const why=_tlStatus==='open'?'No open to-dos':_tlStatus==='done'?'No completed to-dos':'Nothing';
-    box.innerHTML=`<div class="empty">${why}${_tlTag?` for “${esc(_tlTag)}”`:''}${_mvSel.size?' in the selected meetings':''}. To-dos and notes appear here once a meeting's memory has been generated (open a transcribed meeting → Memory → Generate).</div>`;
-    return;
-  }
-  box.innerHTML='<ol class="tl">'+meetings.map(tlMeetingHtml).join('')+'</ol>';
-}
-async function tlTaskToggle(id,cb){
-  cb.disabled=true;
-  const done=cb.checked;
-  const res=await postJson(`/api/memory/tasks/${encodeURIComponent(id)}`,{status:done?'done':'open'},'PATCH');
-  cb.disabled=false;
-  if(!res.ok){cb.checked=!done;setMsg('#mv-todo-msg',res.error,'err');return}
-  setMsg('#mv-todo-msg','');
-  const row=cb.closest('.todo'); if(row) row.classList.toggle('done',done);
-  const li=cb.closest('.tl-meeting');
-  if(li){
-    const o=li.querySelector('.tl-open'), dn=li.querySelector('.tl-done');
-    if(o&&dn){o.textContent=Math.max(0,parseInt(o.textContent||'0')+(done?-1:1));dn.textContent=Math.max(0,parseInt(dn.textContent||'0')+(done?1:-1));}
-  }
-  if(viewerSession&&_viewerTab==='memory') loadMemoryTab();
-}
-// Selection changes and older call sites refresh the timeline through this name.
-async function mvLoadTodos(){ return mvLoadTimeline(); }
-
-async function mvTaskDone(id,cb){
-  cb.disabled=true;
-  const res=await postJson(`/api/memory/tasks/${encodeURIComponent(id)}`,{status:'done'},'PATCH');
-  if(!res.ok){cb.disabled=false;cb.checked=false;setMsg('#mv-todo-msg',res.error,'err');return}
-  setMsg('#mv-todo-msg','');
-  mvLoadTodos();
-  if(viewerSession&&_viewerTab==='memory') loadMemoryTab();
+  _mvSearch=null;
+  mvRender();
 }
 
 // ===========================================================================

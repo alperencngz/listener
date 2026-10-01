@@ -204,7 +204,7 @@ def test_generate_memory_persists(isolated_env, sample_transcript):
     light = mem.list_memories()
     assert light == [{
         "session_id": SID, "title": "Q3 roadmap", "language": "en",
-        "generated_at": record["generated_at"], "generation_count": 1,
+        "summary": record["summary"], "generated_at": record["generated_at"], "generation_count": 1,
         "tasks_open": 3, "tasks_done": 0, "decisions_count": 1, "open_questions_count": 1,
     }]
     assert mem.list_memories([]) == []
