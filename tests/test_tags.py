@@ -247,3 +247,60 @@ def test_import_and_start_accept_tags(client, isolated_env, monkeypatch):
     assert json.loads((isolated_env["transcripts_dir"] / f"{sid}_meta.json").read_text(encoding="utf-8"))["tags"] == ["Ideas", "standup"]
     assert client.post("/api/stop").status_code == 200
     assert [v["name"] for v in client.get("/api/tags").get_json()["tags"]] == ["voice memo", "Ideas", "standup"]
+
+
+# ---------------------------------------------------------------------------
+# Timeline: to-dos and notes per meeting, newest first, scoped by tag/status
+# ---------------------------------------------------------------------------
+
+def _seed_memory(out, sid, title, tags, tasks, decisions=(), questions=()):
+    from listener import memory
+    transcript = "# T\n\n---\n\n**[00:05] Speaker 1:** " + " ".join(t["text"] for t in tasks) + " Ayşe Mehmet Friday.\n"
+    (out / f"{sid}_transcript.md").write_text(transcript, encoding="utf-8")
+    (out / f"{sid}_meta.json").write_text(json.dumps({"title": title, "tags": tags}), encoding="utf-8")
+    body = {"summary": f"{title} summary", "key_points": [], "tasks": list(tasks),
+            "decisions": [{"text": d, "rationale": None, "ts": None} for d in decisions],
+            "open_questions": [{"text": q, "ts": None} for q in questions]}
+    memory.generate_memory(sid, transcript, title=title, tags=tags, transcripts_dir=out,
+                           llm=lambda s, u, schema: dict(body))
+
+
+def test_timeline_groups_by_meeting_and_filters(client, isolated_env):
+    out = isolated_env["transcripts_dir"]
+    a, b, c = "2026-05-10_09-00-00", "2026-05-12_11-52-00", "2026-05-14_15-00-00"
+    _seed_memory(out, a, "Old client call", ["client"],
+                 [{"text": "Send the proposal", "owner": None, "deadline": None, "ts": "00:05"}],
+                 decisions=["Go with plan A"])
+    _seed_memory(out, b, "Internal sync", ["internal"],
+                 [{"text": "Fix the build", "owner": None, "deadline": None, "ts": None},
+                  {"text": "Write the changelog", "owner": None, "deadline": None, "ts": None}],
+                 questions=["Who owns QA?"])
+    _seed_memory(out, c, "Client follow-up", ["client", "weekly"], [], decisions=["Ship on Friday"])
+
+    r = client.get("/api/memory/timeline")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert [m["session_id"] for m in body["meetings"]] == [c, b, a]           # newest first
+    assert body["totals"] == {"open": 3, "done": 0}
+    by_id = {m["session_id"]: m for m in body["meetings"]}
+    assert by_id[b]["tags"] == ["internal"] and len(by_id[b]["tasks"]) == 2
+    assert by_id[b]["open_questions"][0]["text"] == "Who owns QA?"
+    assert by_id[c]["tasks"] == [] and by_id[c]["decisions"][0]["text"] == "Ship on Friday"
+    assert {(t["name"], t["count"]) for t in body["tags"]} == {("client", 2), ("internal", 1), ("weekly", 1)}
+
+    # tag filter (case-insensitive), scope by selected meetings, notes off
+    assert [m["session_id"] for m in client.get("/api/memory/timeline?tag=CLIENT").get_json()["meetings"]] == [c, a]
+    assert [m["session_id"] for m in client.get(f"/api/memory/timeline?session_id={a}&session_id={b}").get_json()["meetings"]] == [b, a]
+    assert [m["session_id"] for m in client.get("/api/memory/timeline?notes=0").get_json()["meetings"]] == [b, a]
+
+    # mark one done: it leaves the open view and appears in the done view
+    task_id = by_id[b]["tasks"][0]["id"]
+    assert client.patch(f"/api/memory/tasks/{task_id}", json={"status": "done"}).status_code == 200
+    done = client.get("/api/memory/timeline?status=done&notes=0").get_json()
+    assert [m["session_id"] for m in done["meetings"]] == [b]
+    assert done["meetings"][0]["tasks"][0]["text"] == "Fix the build"
+    assert done["meetings"][0]["tasks_open"] == 1 and done["meetings"][0]["tasks_done"] == 1
+    opened = client.get("/api/memory/timeline?status=open&notes=0").get_json()
+    assert [len(m["tasks"]) for m in opened["meetings"]] == [1, 1]
+    assert client.get("/api/memory/timeline?status=bogus").status_code == 400
+    assert client.get("/api/memory/timeline?status=all").get_json()["totals"] == {"open": 2, "done": 1}

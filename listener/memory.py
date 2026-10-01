@@ -752,6 +752,27 @@ def _task_counts(conn: sqlite3.Connection) -> dict[str, dict[str, int]]:
     return counts
 
 
+def list_memory_records(session_ids: list[str] | None = None, limit: int = 200) -> list[dict]:
+    """Full ``get_memory`` records, newest meeting first (bounded by ``limit``)."""
+    conn = _conn()
+    sql = "SELECT session_id FROM meeting_memory"
+    params: list[object] = []
+    if session_ids is not None:
+        if not session_ids:
+            return []
+        sql += f" WHERE session_id IN ({_placeholders(session_ids)})"
+        params.extend(session_ids)
+    sql += " ORDER BY session_id DESC LIMIT ?"
+    params.append(max(1, int(limit)))
+    ids = [row["session_id"] for row in conn.execute(sql, params)]
+    records = []
+    for session_id in ids:
+        record = get_memory(session_id)
+        if record is not None:
+            records.append(record)
+    return records
+
+
 def list_memories(session_ids: list[str] | None = None) -> list[dict]:
     """Light rows (no bodies): ids, title, generation info and item/task counts."""
     conn = _conn()

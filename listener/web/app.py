@@ -33,6 +33,7 @@ from listener import tags as tagsmod
 from listener.jobs import JobError, JobRunner
 from listener.pipeline import (
     META_LOCK,
+    date_display,
     default_title,
     fmt_duration,
     read_meta,
@@ -651,6 +652,59 @@ def api_memory_search():
     if not q:
         return jsonify([])
     return jsonify(memory.search_memory(q, limit=min(request.args.get("limit", 20, type=int), 50)))
+
+
+@app.route("/api/memory/timeline", methods=["GET"])
+def api_memory_timeline():
+    """Meeting-scoped timeline of to-dos and notes, newest meeting first.
+
+    Query: ``session_id`` (repeatable, scopes to those meetings), ``tag`` (only
+    meetings carrying that tag), ``status`` = open (default) | done | all
+    (which to-dos to list), ``notes`` = 1 (default) | 0 (include decisions and
+    open questions), ``limit`` (meetings, default 200). Meetings with nothing
+    left to show after filtering are omitted.
+    """
+    from listener import memory
+    ids = request.args.getlist("session_id") or None
+    status = (request.args.get("status") or "open").strip().lower()
+    if status not in ("open", "done", "all"):
+        return _err("status must be open, done or all")
+    tag = (request.args.get("tag") or "").strip().casefold()
+    with_notes = request.args.get("notes", "1") != "0"
+    limit = request.args.get("limit", 200, type=int)
+
+    records = memory.list_memory_records(ids, limit=limit)
+    vocab = {t["name"].casefold(): dict(t, count=0) for t in tagsmod.list_tags()}
+    meetings = []
+    totals = {"open": 0, "done": 0}
+    for record in records:
+        sid = record["session_id"]
+        names = tagsmod.meeting_tags(read_meta(OUTPUT_DIR, sid))
+        for name in names:
+            key = name.casefold()
+            if key not in vocab:
+                vocab[key] = {"name": name, "note": "", "count": 0}
+            vocab[key]["count"] += 1
+        if tag and tag not in {n.casefold() for n in names}:
+            continue
+        tasks = record.get("tasks") or []
+        n_open = sum(1 for t in tasks if t.get("status") == "open")
+        n_done = sum(1 for t in tasks if t.get("status") == "done")
+        totals["open"] += n_open
+        totals["done"] += n_done
+        shown = [t for t in tasks if status == "all" or t.get("status") == status]
+        decisions = (record.get("decisions") or []) if with_notes else []
+        questions = (record.get("open_questions") or []) if with_notes else []
+        if not shown and not decisions and not questions:
+            continue
+        meetings.append({
+            "session_id": sid, "title": record.get("title") or default_title(sid),
+            "date": date_display(sid), "tags": names, "generated_at": record.get("generated_at"),
+            "summary": record.get("summary") or "", "tasks": shown, "tasks_open": n_open, "tasks_done": n_done,
+            "decisions": decisions, "open_questions": questions,
+        })
+    return jsonify({"meetings": meetings, "tags": list(vocab.values()), "totals": totals,
+                    "status": status, "notes": with_notes})
 
 
 @app.route("/api/memory/tasks", methods=["GET"])

@@ -112,6 +112,14 @@ meeting's tags with their notes as user-provided context, clearly separated from
 The sidebar filters by tag. The vocabulary lives in `~/.listener/config.yaml` under `tags`, a
 meeting's tags in its `_meta.json`, and the CLI takes `--tag` on `record` and `transcribe`.
 
+### Timeline
+
+The Memory view opens with a timeline: one block per meeting, newest first, with the meeting's
+tags, its to-dos (tick to mark done, untick to reopen), and its decisions and open questions.
+Filter by tag, switch between open, done and all to-dos, hide the notes, or narrow it to the
+meetings selected above. To-dos appear once a meeting's memory has been generated; open the
+meeting to edit or add to-dos. `GET /api/memory/timeline` backs it.
+
 ### HuggingFace token (optional, for diarization)
 
 1. Generate a read token at <https://huggingface.co/settings/tokens>.

@@ -950,6 +950,28 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .sources a{color:#6366f1;cursor:pointer;text-decoration:none;font-weight:600}
 .sources a:hover{text-decoration:underline}
 .todo-group{margin-bottom:12px}
+.tl{list-style:none;margin:10px 0 0 6px;padding:0 0 0 18px;border-left:2px solid #e2e8f0;position:relative}
+.tl-meeting{position:relative;margin-bottom:18px}
+.tl-meeting::before{content:'';position:absolute;left:-25px;top:5px;width:10px;height:10px;border-radius:50%;background:#6366f1;border:2px solid #fff;box-shadow:0 0 0 2px #e0e7ff}
+.tl-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px}
+.tl-date{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:11px;color:#64748b}
+.tl-title{font-size:13px;font-weight:700;color:#1e293b;cursor:pointer}
+.tl-title:hover{color:#6366f1}
+.tl-counts{font-size:11px}
+.tl-none{margin:2px 0 6px}
+.tl-notes{font-size:12px;color:#475569;background:#f8fafc;border:1px solid #f1f5f9;border-radius:8px;padding:6px 10px}
+.tl-notes ul{margin:2px 0 6px 16px;padding:0}
+.tl-notes li{margin:2px 0}
+.tl-notes .ts{font-family:'SF Mono',SFMono-Regular,Menlo,monospace;font-size:11px;color:#6366f1}
+.tl-notes-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-top:4px}
+.tl-notes .rationale{color:#64748b;font-style:italic}
+.tl-filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.tl-status{display:flex;gap:4px}
+.tl-status .tf,.tl-tags .tf{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer}
+.tl-status .tf.on,.tl-tags .tf.on{background:#6366f1;border-color:#6366f1;color:#fff}
+.tl-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tl-tags .tf .n{opacity:.7;font-size:10px}
+.tl-notes-toggle{font-size:12px;color:#64748b;display:flex;align-items:center;gap:4px;cursor:pointer}
 .todo-group-h{font-size:13px;font-weight:700;color:#334155;margin-bottom:6px}
 .todo-group-h a{color:#334155;cursor:pointer;text-decoration:none}
 .todo-group-h a:hover{color:#6366f1}
@@ -1132,6 +1154,24 @@ select:disabled{opacity:.45;cursor:not-allowed}
       </div>
       <div class="sel-chips" id="mv-sel-chips"><span class="muted">No meetings selected.</span></div>
     </div>
+    <div class="card" id="tl-card">
+      <div class="q-head">
+        <div class="card-label" style="margin-bottom:0">Timeline</div>
+        <div class="tl-filters">
+          <div class="tl-status">
+            <button class="tf on" data-status="open" onclick="tlSetStatus('open')">Open to-dos</button>
+            <button class="tf" data-status="done" onclick="tlSetStatus('done')">Done</button>
+            <button class="tf" data-status="all" onclick="tlSetStatus('all')">All</button>
+          </div>
+          <label class="tl-notes-toggle"><input type="checkbox" id="tl-notes" checked onchange="mvLoadTimeline()"> Decisions &amp; open questions</label>
+        </div>
+      </div>
+      <div class="q-note">Meeting by meeting, newest first. Tick a to-do to mark it done; open the meeting to edit or add to-dos. The selection above narrows the timeline.</div>
+      <div class="tl-tags" id="tl-tags" style="display:none"></div>
+      <div class="helper-text" id="tl-note" style="margin-top:8px"></div>
+      <div class="msg" id="mv-todo-msg"></div>
+      <div id="mv-todos"><div class="empty">Loading...</div></div>
+    </div>
     <div class="card">
       <div class="card-label">Projects</div>
       <div class="mv-proj-row">
@@ -1159,11 +1199,6 @@ select:disabled{opacity:.45;cursor:not-allowed}
       <div class="msg" id="mv-ask-msg"></div>
       <div class="ask-answer" id="mv-answer" style="display:none"></div>
       <div class="sources" id="mv-sources"></div>
-    </div>
-    <div class="card">
-      <div class="card-label">Open to-dos</div>
-      <div class="msg" id="mv-todo-msg"></div>
-      <div id="mv-todos"><div class="empty">Loading...</div></div>
     </div>
   </div><!-- /#memory-view -->
 
@@ -3562,35 +3597,103 @@ function mvTodoHtml(t){
   </label>`;
 }
 
-async function mvLoadTodos(){
+// Timeline: to-dos and notes per meeting, newest first ------------------------
+let _tlStatus='open';
+let _tlTag='';
+function tlSetStatus(s){
+  _tlStatus=s;
+  document.querySelectorAll('#tl-card .tl-status .tf').forEach(b=>b.classList.toggle('on',b.dataset.status===s));
+  mvLoadTimeline();
+}
+function tlSetTag(name){
+  _tlTag=name||'';
+  mvLoadTimeline();
+}
+function tlRenderTags(tags){
+  const el=Q('#tl-tags');
+  if(!el)return;
+  if(!tags.length){el.style.display='none';return}
+  el.style.display='';
+  el.innerHTML=`<button class="tf${_tlTag?'':' on'}" onclick="tlSetTag('')">All tags</button>`+
+    tags.map(t=>`<button class="tf${_tlTag.toLowerCase()===t.name.toLowerCase()?' on':''}" onclick="tlSetTag('${attr(t.name)}')" title="${attr(t.note||'')}">${esc(t.name)} <span class="n">${t.count}</span></button>`).join('');
+}
+function tlTodoHtml(t){
+  const done=t.status==='done';
+  return `<label class="todo${done?' done':''}${t.stale?' stale':''}" data-id="${attr(t.id)}">
+    <input type="checkbox"${done?' checked':''} onchange="tlTaskToggle('${attr(t.id)}',this)">
+    <div class="todo-body">
+      <span class="todo-text">${esc(t.text)}</span>
+      ${t.owner?`<span class="owner-pill">${esc(t.owner)}</span>`:''}
+      ${t.deadline?`<span class="deadline-pill">${esc(t.deadline)}</span>`:''}
+      ${t.ts?`<span class="ts">[${esc(t.ts)}]</span>`:''}
+      ${t.verified===false?'<span class="marker">unverified</span>':''}
+      ${t.stale?'<span class="marker stale">not in latest update</span>':''}
+    </div>
+  </label>`;
+}
+function tlMeetingHtml(m){
+  const tasks=(m.tasks||[]).map(tlTodoHtml).join('');
+  const notes=[];
+  if(m.decisions&&m.decisions.length) notes.push(`<div class="tl-notes-h">Decisions</div><ul>${m.decisions.map(x=>`<li>${esc(x.text)}${x.rationale?` <span class="rationale">— ${esc(x.rationale)}</span>`:''}${x.ts?` <span class="ts">[${esc(x.ts)}]</span>`:''}</li>`).join('')}</ul>`);
+  if(m.open_questions&&m.open_questions.length) notes.push(`<div class="tl-notes-h">Open questions</div><ul>${m.open_questions.map(x=>`<li>${esc(x.text)}${x.ts?` <span class="ts">[${esc(x.ts)}]</span>`:''}</li>`).join('')}</ul>`);
+  const none=_tlStatus==='open'?'No open to-dos.':_tlStatus==='done'?'Nothing marked done.':'No to-dos.';
+  return `<li class="tl-meeting" data-sid="${attr(m.session_id)}">
+    <div class="tl-head">
+      <span class="tl-date">${esc(m.date)}</span>
+      <a class="tl-title" onclick="openSessionById('${attr(m.session_id)}')">${esc(m.title)}</a>
+      ${tagChipsHtml(m.tags)}
+      <span class="tl-counts muted"><span class="tl-open">${m.tasks_open}</span> open · <span class="tl-done">${m.tasks_done}</span> done</span>
+    </div>
+    ${tasks?`<div class="tl-todos">${tasks}</div>`:`<div class="muted tl-none">${none}</div>`}
+    ${notes.length?`<div class="tl-notes">${notes.join('')}</div>`:''}
+  </li>`;
+}
+async function mvLoadTimeline(){
   const box=Q('#mv-todos');
-  let url='/api/memory/tasks?status=open';
+  if(!box)return;
+  const notesOn=!Q('#tl-notes')||Q('#tl-notes').checked;
+  let url=`/api/memory/timeline?status=${encodeURIComponent(_tlStatus)}&notes=${notesOn?1:0}`;
+  if(_tlTag) url+='&tag='+encodeURIComponent(_tlTag);
   if(_mvSel.size) url+=Array.from(_mvSel.keys()).map(id=>'&session_id='+encodeURIComponent(id)).join('');
-  let tasks=[];
+  let d;
   try{
     const r=await f(url);
     if(!r.ok){
-      let d={};try{d=await r.json()}catch(e){}
-      box.innerHTML=`<div class="empty">To-dos unavailable: ${esc(d.error||('error '+r.status))}</div>`;
+      let e={};try{e=await r.json()}catch(x){}
+      box.innerHTML=`<div class="empty">Timeline unavailable: ${esc(e.error||('error '+r.status))}</div>`;
       return;
     }
-    tasks=(await r.json()).tasks||[];
-  }catch(e){box.innerHTML='<div class="empty">Could not load to-dos.</div>';return}
-  if(!tasks.length){
-    box.innerHTML=`<div class="empty">${_mvSel.size?'No open to-dos for the selected meetings.':'No open to-dos.'}</div>`;
+    d=await r.json();
+  }catch(e){box.innerHTML='<div class="empty">Could not load the timeline.</div>';return}
+  tlRenderTags(d.tags||[]);
+  const scope=_mvSel.size?`${_mvSel.size} selected meeting${_mvSel.size===1?'':'s'}`:'all meetings with memory';
+  const totals=d.totals||{open:0,done:0};
+  Q('#tl-note').textContent=`${totals.open} open · ${totals.done} done across ${scope}${_tlTag?` tagged “${_tlTag}”`:''}.`;
+  const meetings=d.meetings||[];
+  if(!meetings.length){
+    const why=_tlStatus==='open'?'No open to-dos':_tlStatus==='done'?'No completed to-dos':'Nothing';
+    box.innerHTML=`<div class="empty">${why}${_tlTag?` for “${esc(_tlTag)}”`:''}${_mvSel.size?' in the selected meetings':''}. To-dos and notes appear here once a meeting's memory has been generated (open a transcribed meeting → Memory → Generate).</div>`;
     return;
   }
-  const groups=new Map();
-  tasks.forEach(t=>{
-    if(!groups.has(t.session_id)) groups.set(t.session_id,[]);
-    groups.get(t.session_id).push(t);
-  });
-  box.innerHTML=Array.from(groups.entries()).map(([sid,list])=>
-    `<div class="todo-group">
-      <div class="todo-group-h"><a onclick="openSessionById('${attr(sid)}')">${esc(mvTitleFor(sid))}</a> <span class="muted">${esc(sessionDate(sid))}</span></div>
-      ${list.map(mvTodoHtml).join('')}
-    </div>`).join('');
+  box.innerHTML='<ol class="tl">'+meetings.map(tlMeetingHtml).join('')+'</ol>';
 }
+async function tlTaskToggle(id,cb){
+  cb.disabled=true;
+  const done=cb.checked;
+  const res=await postJson(`/api/memory/tasks/${encodeURIComponent(id)}`,{status:done?'done':'open'},'PATCH');
+  cb.disabled=false;
+  if(!res.ok){cb.checked=!done;setMsg('#mv-todo-msg',res.error,'err');return}
+  setMsg('#mv-todo-msg','');
+  const row=cb.closest('.todo'); if(row) row.classList.toggle('done',done);
+  const li=cb.closest('.tl-meeting');
+  if(li){
+    const o=li.querySelector('.tl-open'), dn=li.querySelector('.tl-done');
+    if(o&&dn){o.textContent=Math.max(0,parseInt(o.textContent||'0')+(done?-1:1));dn.textContent=Math.max(0,parseInt(dn.textContent||'0')+(done?1:-1));}
+  }
+  if(viewerSession&&_viewerTab==='memory') loadMemoryTab();
+}
+// Selection changes and older call sites refresh the timeline through this name.
+async function mvLoadTodos(){ return mvLoadTimeline(); }
 
 async function mvTaskDone(id,cb){
   cb.disabled=true;
