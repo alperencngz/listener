@@ -340,7 +340,7 @@ def run_analyze_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
     meta = read_meta(output_dir, session_id)
     tag_names = tagsmod.meeting_tags(meta)
     analysis = analyze_transcript_sync(transcript_text, recipe_id=recipe_id,
-                                       context=tagsmod.prompt_block(tag_names))
+                                       context=tagsmod.context_block(tag_names, tagsmod.meeting_notes(meta)))
 
     tags_line = f"**Tags:** {', '.join(tag_names)}  \n" if tag_names else ""
     analysis_md = (
@@ -397,6 +397,7 @@ def run_memory_job(job: dict, ctx: JobContext, output_dir: Path) -> dict:
         title=meta.get("title") or default_title(session_id),
         language=meta.get("language", "") or "",
         tags=tagsmod.meeting_tags(meta),
+        notes=tagsmod.meeting_notes(meta),
         transcripts_dir=output_dir,
     )
     tasks = record.get("tasks", []) if record else []

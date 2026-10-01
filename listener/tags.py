@@ -22,6 +22,7 @@ from listener import settings
 MAX_NAME_LEN = 40
 MAX_NOTE_LEN = 300
 MAX_TAGS_PER_MEETING = 20
+MAX_NOTES_LEN = 4000
 
 _WS = re.compile(r"\s+")
 
@@ -235,3 +236,33 @@ def prompt_block(names: list[str]) -> str:
     return ("Tags the user attached to this meeting before processing (context about what kind of "
             "meeting this is; they are guidance from the user, not part of the transcript):\n"
             + "\n".join(f"- {line}" for line in lines))
+
+
+def clean_notes(notes: object) -> str:
+    """Free-text notes the user wrote for Claude; trimmed and bounded."""
+    if notes is None:
+        return ""
+    if not isinstance(notes, str):
+        raise TagError("notes must be text")
+    cleaned = notes.replace("\r\n", "\n").strip()
+    if len(cleaned) > MAX_NOTES_LEN:
+        raise TagError(f"notes are too long (max {MAX_NOTES_LEN} characters)")
+    return cleaned
+
+
+def meeting_notes(meta: dict | None) -> str:
+    raw = (meta or {}).get("notes")
+    return raw.strip() if isinstance(raw, str) else ""
+
+
+def context_block(names: list[str], notes: str | None = None) -> str:
+    """Everything the user gave as guidance for one meeting: tags (with notes) and free-text notes."""
+    parts = []
+    tags_part = prompt_block(names)
+    if tags_part:
+        parts.append(tags_part)
+    text = (notes or "").replace("\r\n", "\n").strip()
+    if text:
+        parts.append("Notes the user wrote about this meeting before processing (context and guidance "
+                     "from the user, not part of the transcript):\n" + text)
+    return "\n\n".join(parts)

@@ -812,6 +812,15 @@ select:disabled{opacity:.45;cursor:not-allowed}
 .s-chip.failed{background:#fee2e2;color:#dc2626}
 .s-chip.interrupted{background:#fef3c7;color:#b45309}
 .s-chip.rec{background:#fee2e2;color:#dc2626}
+.s-chip.review{background:#ede9fe;color:#6d28d9}
+.rv-item{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-top:8px;background:#fff}
+.rv-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rv-notes,.v-notes textarea{width:100%;min-height:56px;margin-top:8px;font-size:13px;line-height:1.45;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;resize:vertical;font-family:inherit;color:#1e293b;background:#fff;outline:none;box-sizing:border-box}
+.rv-notes:focus,.v-notes textarea:focus{border-color:#6366f1}
+.rv-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.v-notes{margin-top:6px}
+.v-notes textarea{min-height:40px;margin-top:0}
+.v-notes .helper-text{margin:2px 0 0}
 .rec-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:livePulse 1.5s ease-in-out infinite}
 .badge.me{background:#ede9fe;color:#7c3aed}
 
@@ -1106,6 +1115,16 @@ select:disabled{opacity:.45;cursor:not-allowed}
     <div class="q-list" id="q-list"><div class="empty">Nothing queued. Stop a recording or import audio, then add it here.</div></div>
   </div>
 
+  <!-- Review line: transcribed meetings waiting for the user's tags / notes -->
+  <div class="card" id="review-card" style="display:none">
+    <div class="q-head">
+      <div class="card-label" style="margin-bottom:0">Ready for your input</div>
+      <span class="helper-text" style="margin:0" id="review-count"></span>
+    </div>
+    <div class="q-note">Transcription is done for these meetings. Add tags and notes for Claude first; the analysis and the memory only run when you start them here or in the meeting.</div>
+    <div id="review-list"></div>
+  </div>
+
   <!-- Import Meeting -->
   <div class="card" id="import-card">
     <div class="card-label">Import Meeting</div>
@@ -1210,6 +1229,10 @@ select:disabled{opacity:.45;cursor:not-allowed}
           <div class="v-title" id="v-title"></div>
           <div class="v-meta" id="v-meta"></div>
           <div class="tag-editor v-tags" id="v-tags"></div>
+          <div class="v-notes" id="v-notes">
+            <textarea id="v-notes-text" rows="2" placeholder="Notes for Claude (optional): who was there, what matters, what to extract…" onblur="saveViewerNotes(this)"></textarea>
+            <div class="helper-text">Tags and notes go to Claude as your context with every analysis, memory update and question about this meeting.</div>
+          </div>
         </div>
         <button class="viewer-close" onclick="showNewRecordingView()" title="Close viewer">&times;</button>
       </div>
@@ -1344,6 +1367,93 @@ function stageText(j){
 }
 function safeSnippet(s){
   return esc(s||'').replace(/&lt;mark&gt;/g,'<mark>').replace(/&lt;\/mark&gt;/g,'</mark>');
+}
+
+// ===========================================================================
+// Review line — transcribed meetings waiting for tags / notes before Claude
+// ===========================================================================
+let _reviewIds=[];
+async function loadReview(){
+  let meetings=[];
+  try{
+    const r=await f('/api/review');
+    if(!r.ok)return;
+    meetings=(await r.json()).meetings||[];
+  }catch(e){return}
+  meetings.forEach(m=>{_sessionsCache[m.id]=Object.assign(_sessionsCache[m.id]||{},m)});
+  renderReview(meetings);
+}
+function renderReview(meetings){
+  const card=Q('#review-card'), list=Q('#review-list');
+  if(!card||!list)return;
+  const ids=meetings.map(m=>m.id);
+  card.style.display=ids.length?'':'none';
+  Q('#review-count').textContent=ids.length?`${ids.length} meeting${ids.length===1?'':'s'} waiting`:'';
+  // Keep existing items untouched (the user may be typing); add new ones, drop finished ones.
+  list.querySelectorAll('.rv-item').forEach(el=>{if(!ids.includes(el.dataset.sid)) el.remove();});
+  meetings.forEach(m=>{
+    if(list.querySelector(`.rv-item[data-sid="${CSS.escape(m.id)}"]`))return;
+    const sid=m.id, key=attr(sid);
+    const div=document.createElement('div');
+    div.className='rv-item'; div.dataset.sid=sid;
+    div.innerHTML=`<div class="rv-head">
+        <a class="tl-title" onclick="openSessionById('${key}')">${esc(m.title||sid)}</a>
+        <span class="muted">${esc(sessionDate(sid))}${m.duration?' · '+esc(fmtDur(m.duration)):''}${m.language?' · '+esc(String(m.language).toUpperCase()):''}</span>
+      </div>
+      <div class="tag-editor" id="rv-tags-${key}"></div>
+      <textarea class="rv-notes" id="rv-notes-${key}" placeholder="Notes for Claude (optional): who was there, what matters, what to extract…" onblur="saveNotes('${key}',this)"></textarea>
+      <div class="rv-acts">
+        <select class="recipe-select" id="rv-recipe-${key}">${recipeOptionsHtml(m.recipe_id)}</select>
+        <button class="btn primary sm" onclick="reviewAnalyze('${key}')">Analyze with Claude</button>
+        <button class="btn sm" onclick="reviewMemory('${key}')">Generate memory</button>
+        <button class="btn sm" onclick="reviewDone('${key}')" title="Leave this list without running Claude">Done, no Claude</button>
+        <span class="msg" id="rv-msg-${key}" style="margin:0"></span>
+      </div>`;
+    // newest first, matching the server order
+    const before=Array.from(list.querySelectorAll('.rv-item')).find(el=>el.dataset.sid<sid);
+    list.insertBefore(div,before||null);
+    renderTagEditor(`rv-tags-${sid}`,sid,m.tags||[]);
+    Q(`#rv-notes-${sid}`).value=m.notes||'';
+  });
+  _reviewIds=ids;
+}
+async function saveNotes(sid,ta){
+  const notes=ta.value;
+  const cached=_sessionsCache[sid];
+  if(cached&&(cached.notes||'')===notes.trim())return;
+  const res=await postJson(`/api/sessions/${encodeURIComponent(sid)}/notes`,{notes});
+  const msg=Q(`#rv-msg-${sid}`);
+  if(!res.ok){if(msg) setMsg(`#rv-msg-${sid}`,res.error,'err'); else toast(res.error); return}
+  if(cached) cached.notes=res.data.notes;
+  if(viewerSession&&viewerSession.id===sid) viewerSession.notes=res.data.notes;
+  const other=Q('#v-notes-text'); if(other&&viewerSession&&viewerSession.id===sid&&document.activeElement!==other) other.value=res.data.notes;
+  const rv=Q(`#rv-notes-${sid}`); if(rv&&rv!==ta&&document.activeElement!==rv) rv.value=res.data.notes;
+  if(msg) setMsg(`#rv-msg-${sid}`,'Notes saved.','ok');
+}
+async function saveViewerNotes(ta){
+  if(!viewerSession?.id)return;
+  await saveNotes(viewerSession.id,ta);
+}
+async function reviewAnalyze(sid){
+  const sel=Q(`#rv-recipe-${sid}`);
+  const ta=Q(`#rv-notes-${sid}`); if(ta) await saveNotes(sid,ta);
+  const res=await postJson(`/api/analyze/${encodeURIComponent(sid)}`,{recipe_id:(sel&&sel.value)||null});
+  if(!res.ok){setMsg(`#rv-msg-${sid}`,res.error,'err');return}
+  toast('Analysis started. Open the meeting to follow it.');
+  await poll(); loadSessions();
+}
+async function reviewMemory(sid){
+  const ta=Q(`#rv-notes-${sid}`); if(ta) await saveNotes(sid,ta);
+  const res=await postJson(`/api/memory/${encodeURIComponent(sid)}/generate`,{});
+  if(!res.ok){setMsg(`#rv-msg-${sid}`,res.error,'err');return}
+  toast('Memory generation started.');
+  await poll(); loadSessions();
+}
+async function reviewDone(sid){
+  const ta=Q(`#rv-notes-${sid}`); if(ta) await saveNotes(sid,ta);
+  const res=await postJson(`/api/sessions/${encodeURIComponent(sid)}/reviewed`,{});
+  if(!res.ok){setMsg(`#rv-msg-${sid}`,res.error,'err');return}
+  loadSessions();
 }
 
 // ===========================================================================
@@ -2066,6 +2176,7 @@ function renderViewerFrame(sess){
   meta+='<span id="v-job-chip"></span>';
   Q('#v-meta').innerHTML=meta;
   renderTagEditor('v-tags',sess.id,sess.tags||[]);
+  const nt=Q('#v-notes-text'); if(nt&&document.activeElement!==nt) nt.value=sess.notes||'';
   updateViewerChip();
 
   // Tabs
@@ -3184,6 +3295,7 @@ function sessionItemHtml(s){
   let chip='';
   if(s.recording) chip='<span class="s-chip rec"><span class="rec-dot"></span>REC</span>';
   else if(s.job&&s.job.status!=='done') chip=`<span class="s-chip ${attr(s.job.status)}">${esc(sessionChipText(s.job))}</span>`;
+  else if(s.needs_review) chip='<span class="s-chip review" title="Transcribed; waiting for your tags and notes">Your input</span>';
   const sub=esc(sessionDate(s.id))+(s.duration?' &middot; '+esc(fmtDur(s.duration)):'')+(s.language?' &middot; '+esc(String(s.language).toUpperCase()):'')+tagChipsHtml(s.tags);
   return `<li class="sitem${viewerSession?.id===s.id?' active':''}" data-id="${attr(s.id)}" onclick="viewSessById('${attr(s.id)}')">
     <div class="s-left"><div class="s-title">${esc(title)}</div><div class="s-date">${sub}${chip}</div></div>
@@ -3198,6 +3310,7 @@ async function loadSessions(append){
     const data=await r.json();
     const list=data.sessions||[];
     list.forEach(s=>{_sessionsCache[s.id]=s});
+    if(!append) loadReview();
     const ul=Q('#slist');
     if(!append && !list.length){ul.innerHTML='<li class="empty">No sessions yet</li>';return}
 

@@ -369,16 +369,16 @@ def _neutralise_tags(text: str) -> str:
 
 
 def build_generation_prompt(transcript_text: str, title: str, language: str,
-                            tags: list[str] | None = None) -> tuple[str, str]:
+                            tags: list[str] | None = None, notes: str = "") -> tuple[str, str]:
     """Return (system_prompt, user_prompt) for a memory generation call.
 
-    ``tags`` are the user's own labels for the meeting; their notes (from the
-    tag vocabulary) are passed as context so the extraction knows what kind of
-    meeting it is reading.
+    ``tags`` are the user's own labels for the meeting (their notes come from
+    the tag vocabulary) and ``notes`` is free text the user wrote for this
+    meeting; both go in as user-provided context, ahead of the transcript.
     """
     from listener import tags as tagsmod
     transcript_text = _neutralise_tags(transcript_text)
-    block = tagsmod.prompt_block(list(tags or []))
+    block = tagsmod.context_block(list(tags or []), notes)
     user_prompt = GENERATION_USER_TEMPLATE.format(
         title=title.strip() or "(untitled)",
         language=language.strip() or "unknown",
@@ -942,7 +942,7 @@ def _default_generation_llm(model: str) -> GenerationLLM:
 
 
 def generate_memory(session_id: str, transcript_text: str, *, title: str = "", language: str = "",
-                    tags: list[str] | None = None, transcripts_dir: Path | None = None,
+                    tags: list[str] | None = None, notes: str = "", transcripts_dir: Path | None = None,
                     model: str = DEFAULT_MODEL, llm: GenerationLLM | None = None) -> dict:
     """Generate (or re-generate) the grounded memory for one meeting.
 
@@ -958,7 +958,7 @@ def generate_memory(session_id: str, transcript_text: str, *, title: str = "", l
     sha = _sha256(transcript_text)
     generation_id = _start_generation(session_id, model, sha)
     try:
-        system_prompt, user_prompt = build_generation_prompt(transcript_text, title, language, tags)
+        system_prompt, user_prompt = build_generation_prompt(transcript_text, title, language, tags, notes)
         parsed = call(system_prompt, user_prompt, MEMORY_SCHEMA)
         grounded, notes = ground_memory(parsed, transcript_text)
         now = _now()
@@ -1288,10 +1288,17 @@ def _title_from_meta(transcripts_dir: Path | None, session_id: str) -> str:
 
 
 def _tags_line(transcripts_dir: Path | None, session_id: str) -> str:
-    """'Tags: name — note; name' from the meeting's meta, or ''."""
+    """User-provided context from the meeting's meta: tags line and notes line, or ''."""
     from listener import tags as tagsmod
-    names = tagsmod.meeting_tags(_read_meta_file(transcripts_dir, session_id))
-    return f"Tags (set by the user): {'; '.join(tagsmod.describe(names))}" if names else ""
+    meta = _read_meta_file(transcripts_dir, session_id)
+    names = tagsmod.meeting_tags(meta)
+    lines = []
+    if names:
+        lines.append(f"Tags (set by the user): {'; '.join(tagsmod.describe(names))}")
+    notes = tagsmod.meeting_notes(meta)
+    if notes:
+        lines.append("Notes (written by the user): " + " ".join(notes.split()))
+    return "\n".join(lines)
 
 
 def _meeting_context(session_id: str, transcripts_dir: Path | None) -> dict:

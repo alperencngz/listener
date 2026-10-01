@@ -112,6 +112,17 @@ meeting's tags with their notes as user-provided context, clearly separated from
 The sidebar filters by tag. The vocabulary lives in `~/.listener/config.yaml` under `tags`, a
 meeting's tags in its `_meta.json`, and the CLI takes `--tag` on `record` and `transcribe`.
 
+### Review before Claude runs
+
+Transcription never flows straight into Claude. When a transcription finishes, the meeting
+lands in **Ready for your input** under the processing queue (and gets a "Your input" marker
+in the sidebar). There you add tags, write notes for Claude (who was there, what matters, what
+to extract), pick a recipe and press **Analyze with Claude** or **Generate memory**; or press
+**Done, no Claude** to wave it through. Tags and notes travel as user-provided context, separate
+from the transcript, with every analysis, memory update and Ask. The same notes box sits in the
+meeting header, so you can revise and re-run later. Notes live in the meeting's `_meta.json`
+(`notes`), and starting a Claude action stamps `reviewed_at`.
+
 ### Timeline
 
 The Memory view opens with a timeline: one block per meeting, newest first, with the meeting's

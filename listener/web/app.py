@@ -614,6 +614,11 @@ def _start_claude_action(session_id: str, kind: str, options: dict):
         return _err(str(exc), 409)
     except JobError as exc:
         return _err(str(exc), 409)
+    try:
+        if not read_meta(OUTPUT_DIR, session_id).get("reviewed_at"):
+            update_meta(OUTPUT_DIR, session_id, reviewed_at=datetime.now().isoformat(timespec="seconds"))
+    except OSError as exc:  # the job still runs; the review line just keeps the meeting
+        logger.warning("Could not mark %s reviewed: %s", session_id, exc)
     _runner.start_claude_job(job["id"])
     return jsonify({"job": _job_view(jobsdb.get_job(job["id"]))}), 202
 
@@ -984,23 +989,17 @@ def api_settings_claude():
     return jsonify({"claude": status})
 
 
-@app.route("/api/sessions")
-def api_sessions():
-    _ensure_init()
-    if not OUTPUT_DIR.exists():
-        return jsonify({"sessions": [], "total": 0, "has_more": False})
-
-    offset = request.args.get("offset", 0, type=int)
-    limit = request.args.get("limit", 30, type=int)
-
+def _scan_sessions() -> list[dict]:
+    """Every meeting in OUTPUT_DIR (newest first) with files, meta, job and review state."""
     session_map: dict[str, dict] = {}
-
-    tag_filter = (request.args.get("tag") or "").strip().casefold()
+    if not OUTPUT_DIR.exists():
+        return []
 
     def entry(sid: str) -> dict:
         if sid not in session_map:
             session_map[sid] = {"id": sid, "files": {}, "title": "", "duration": 0, "language": "",
-                                "recipe_id": "", "has_memory": False, "tags": []}
+                                "recipe_id": "", "has_memory": False, "tags": [], "notes": "",
+                                "reviewed_at": None, "transcribed_at": None, "source": ""}
         return session_map[sid]
 
     for f in sorted(OUTPUT_DIR.iterdir(), reverse=True):
@@ -1021,6 +1020,10 @@ def api_sessions():
                 s["language"] = meta.get("language", "")
                 s["recipe_id"] = meta.get("recipe_id", "") or ""
                 s["tags"] = tagsmod.meeting_tags(meta)
+                s["notes"] = tagsmod.meeting_notes(meta)
+                s["reviewed_at"] = meta.get("reviewed_at") or None
+                s["transcribed_at"] = meta.get("transcribed_at") or None
+                s["source"] = meta.get("source", "") or ""
             except Exception:
                 pass
             continue
@@ -1053,13 +1056,72 @@ def api_sessions():
         s["job"] = ({"id": job["id"], "kind": job["kind"], "status": job["status"], "stage": job["stage"],
                      "error": job["error"], "progress": job["progress"]} if job else None)
         s["recording"] = sid == recording_sid
+        # Transcribed, but Claude has not been asked anything yet and the user
+        # has not waved it through: it waits for tags / notes on the review line.
+        s["needs_review"] = bool(
+            s["files"].get("transcript") and not s["files"].get("analysis") and not s["has_memory"]
+            and not s["reviewed_at"] and not (job and job["kind"] in ("analyze", "memory") and job["status"] != "failed")
+        )
+    return sorted(session_map.values(), key=lambda s: s["id"], reverse=True)
 
-    sorted_sessions = sorted(session_map.values(), key=lambda s: s["id"], reverse=True)
+
+@app.route("/api/sessions")
+def api_sessions():
+    _ensure_init()
+    offset = request.args.get("offset", 0, type=int)
+    limit = request.args.get("limit", 30, type=int)
+    tag_filter = (request.args.get("tag") or "").strip().casefold()
+    sorted_sessions = _scan_sessions()
     if tag_filter:
         sorted_sessions = [s for s in sorted_sessions if tag_filter in {t.casefold() for t in s["tags"]}]
     total = len(sorted_sessions)
     page = sorted_sessions[offset:offset + limit]
     return jsonify({"sessions": page, "total": total, "has_more": offset + limit < total})
+
+
+# ---------------------------------------------------------------------------
+# Review line: transcribed meetings waiting for the user's tags / notes
+# ---------------------------------------------------------------------------
+
+@app.route("/api/review")
+def api_review():
+    """Meetings whose transcription finished and that still wait for the user's input."""
+    _ensure_init()
+    return jsonify({"meetings": [s for s in _scan_sessions() if s["needs_review"]]})
+
+
+@app.route("/api/sessions/<session_id>/notes", methods=["GET", "POST"])
+def api_session_notes(session_id):
+    """Free-text notes for Claude about one meeting (stored in meta.json)."""
+    paths = session_paths(OUTPUT_DIR, session_id)
+    if not paths["audio"].exists() and not paths["transcript"].exists() and not paths["meta"].exists():
+        return _err("Session not found", 404)
+    if request.method == "GET":
+        return jsonify({"session_id": session_id, "notes": tagsmod.meeting_notes(read_meta(OUTPUT_DIR, session_id))})
+    data = request.json or {}
+    try:
+        notes = tagsmod.clean_notes(data.get("notes"))
+    except tagsmod.TagError as exc:
+        return _err(str(exc))
+    try:
+        update_meta(OUTPUT_DIR, session_id, notes=notes)
+    except OSError as exc:
+        return _err(f"Could not save the notes: {exc}", 500)
+    return jsonify({"session_id": session_id, "notes": notes})
+
+
+@app.route("/api/sessions/<session_id>/reviewed", methods=["POST", "DELETE"])
+def api_session_reviewed(session_id):
+    """Wave a meeting through the review line without running Claude (DELETE puts it back)."""
+    paths = session_paths(OUTPUT_DIR, session_id)
+    if not paths["transcript"].exists() and not paths["meta"].exists():
+        return _err("Session not found", 404)
+    stamp = None if request.method == "DELETE" else datetime.now().isoformat(timespec="seconds")
+    try:
+        update_meta(OUTPUT_DIR, session_id, reviewed_at=stamp)
+    except OSError as exc:
+        return _err(f"Could not update the meeting: {exc}", 500)
+    return jsonify({"session_id": session_id, "reviewed_at": stamp})
 
 
 @app.route("/api/view/<filename>")
